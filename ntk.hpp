@@ -87,6 +87,22 @@ public:
 			term.flip(Flip);
 		}
 	}
+	void Apply( Rev_Ttb_t& Ttb ) const {
+		int Flip;
+		Term_t Ctrls;
+		for(int i=0; i<_vLevel.size(); i++){
+			Flip = _vLevel[i]->ExtraFlip();
+			if( -1 == Flip )
+				continue;
+			Ctrls = _vLevel[i]->ExtraCtrl();
+			for(int j=0; j<Ttb.size(); j++){
+				Term_t& iterm = Ttb[j]->first;
+				if( Ctrls != (Ctrls & iterm) )
+					continue;
+				iterm.flip(Flip);
+			}
+		}
+	}
 	void Append( const Rev_Ntk_t& Ntk ){
 		for(int i=0; i<Ntk._vLevel.size(); i++ )
 			push_back( *Ntk._vLevel[i] );
@@ -101,6 +117,14 @@ public:
 			}
 			ostr<<std::endl;
 		}
+	}
+	int Verify( const Rev_Ttb_t& ttb ) const {
+		Rev_Ttb_t ttb2(ttb);
+		Apply(ttb2);
+		for(int i=0; i<ttb2.size(); i++)
+			if( ttb2[i]->first != ttb2[i]->second )
+				return 0;
+		return 1;
 	}
 };
 

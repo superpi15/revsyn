@@ -42,15 +42,15 @@ static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
 	for(int i=0; i<Diff.ndata(); i++){
 		if( !Diff.val(i) )
 			continue;
-		Term_t Oper = small & Prog;
+		Term_t Oper = Prog;
 		Oper.set(i,0);
 		
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
 		Gate.setFlip( i );
 		Ntk.push_back( Gate );
+		Prog.flip(i);
 	}
-	Ntk.reverse();
 }
 
 Rev_Ntk_t * Rev_Gbd( const Rev_Ttb_t& ttb ){
@@ -65,9 +65,9 @@ Rev_Ntk_t * Rev_Gbd( const Rev_Ttb_t& ttb ){
 	}
 	
 	//pick min-minterm, tie-break by hamdist
+	Rev_Ntk_t NtkFront, NtkBack;
 	for(int i=0; i<vSynObj.size(); i++){
 		std::sort( vSynObj.begin()+i, vSynObj.end(), Syn_Obj_t::Cmptor_t() );
-
 		// check tie-breack condition
 		if( i+1<vSynObj.size() )
 			if( vSynObj[i].small()==vSynObj[i+1].small() ){
@@ -86,10 +86,13 @@ Rev_Ntk_t * Rev_Gbd( const Rev_Ttb_t& ttb ){
 		}
 
 
-		if( !fForward )
-			SubNtk.reverse();
-		
-		pNtk->Append( SubNtk );
+		if( fForward )
+			NtkBack .Append( SubNtk );
+		else
+			NtkFront.Append( SubNtk );
 	}
+	pNtk->Append( NtkFront );
+	NtkBack.reverse();
+	pNtk->Append( NtkBack  );
 	return pNtk;
 }

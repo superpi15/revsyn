@@ -3,7 +3,6 @@
 #include "ntk.hpp"
 using namespace std;
 int main( int argc, char * argv[] ){
-	Rev_Ttb_t ttb;
 //	vLembit_t<1> word1, word2, word3;
 //	std::cout<< "Example on bit operation "<<std::endl;
 //	//const char * str1 = "01011010010110101001000001100111011010100100000110011101";\
@@ -32,12 +31,19 @@ int main( int argc, char * argv[] ){
 //	word1.flip(40);
 //	word1.print( std::cout ); std::cout<<" flip "<< 40 <<std::endl;
 //	return 0;
+	Rev_Ttb_t ttb;
 	if( !ttb.read(argv[1]) ){
 		std::cout<<"Parsing Error"<<std::endl;
+		return 1;
 	}
 	cout<<" Spec: "<< argv[1] <<endl;
-	ttb.print( std::cout );
+	//ttb.print( std::cout );
 	Rev_Ntk_t * pNtk = Rev_Gbd(ttb);
 	cout<<" Nkt: level="<<pNtk->nLevel() <<endl;
-	pNtk->print( std::cout );
+	if( ! pNtk->Verify(ttb) )
+		cout<<" mismatch in implementation and spec. "<<endl;
+	else
+		cout<<" Ntk is correctly implemented the spec. "<<endl;
+	//pNtk->print( std::cout );
+	return 0;
 }
