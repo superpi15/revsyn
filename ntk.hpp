@@ -134,6 +134,7 @@ public:
 	int Verify( const Rev_Ttb_t& ttb ) const {
 		Rev_Ttb_t ttb2(ttb);
 		Apply(ttb2);
+		//ttb2.print(std::cout);
 		for(int i=0; i<ttb2.size(); i++)
 			if( ttb2[i]->first != ttb2[i]->second )
 				return 0;

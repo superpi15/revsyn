@@ -83,4 +83,10 @@ private:
 	unsigned int FULL       () const { return ~0;}
 };
 
+template<int WIDTH>
+static inline std::ostream& operator<<( std::ostream& ostr, const vLembit_t<WIDTH>& vBit ){
+	vBit.print( ostr );
+	return ostr;
+}
+
 #endif

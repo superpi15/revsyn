@@ -26,7 +26,10 @@ int main( int argc, char * argv[] ){
 	}
 	cout<<" Spec: "<< SpecName <<" nEntry= "<< ttb.size() <<endl;
 	
-	//ttb.print( std::cout ); // print ttb 
+	if( ttb.size() < 16 )
+		ttb.print( std::cout ); // print ttb 
+	else
+		cout << " Spec is too large. Skip printing "<<endl;
 	
 	Rev_Ntk_t * pNtk = NULL;
 	if( 0 == mode )
@@ -35,14 +38,17 @@ int main( int argc, char * argv[] ){
 		pNtk = Rev_qGBD(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
 
+	if( pNtk->nLevel() < 40 )
+		pNtk->print( std::cout ); // print ntk
+	else
+		cout<< " Result circuit is too large. Skip printing "<<endl;
+
 	if( fVerify ){
 		if( ! pNtk->Verify(ttb) )
 			cout<<" Mismatch in implementation and spec. "<<endl;
 		else
 			cout<<" Ntk is correctly implemented the spec. "<<endl;
 	}
-	
-	//pNtk->print( std::cout ); // print ntk
 	
 	return 0;
 }

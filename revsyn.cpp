@@ -4,14 +4,19 @@
 
 using namespace std;
 
-static Term_t Rev_QcostMinOper( Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
+static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
 	Term_t ret;
 	vector<vSynObj_t::iterator> vUnchecked;
+
+	ret.resize( OperCand.ndata() );
+	if( 1 == fixedEnd - fixedBegin ){
+		if( ret == fixedBegin->small() ) // zero 
+			return ret;
+	}
 	
 	for( vSynObj_t::iterator itr = fixedBegin; itr != fixedEnd; itr ++ )
 		vUnchecked.push_back(itr);
 
-	ret.resize( OperCand.ndata() );
 	for(int i=0; i<vVarInfPtr.size(); i++){
 		int var = vVarInfPtr[i]->VarId;
 		if( 0==OperCand.val( var ) )
@@ -21,36 +26,64 @@ static Term_t Rev_QcostMinOper( Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, cons
 		vector<vSynObj_t::iterator> vUncheckedNew;
 		for(int j=0; j<vUnchecked.size(); j++){
 			const Term_t& target = vUnchecked[j]->small();
-			if( target == (ret | target) )
+			if( (ret != OperCand)? target == (ret | target) : false )
 				vUncheckedNew.push_back( vUnchecked[j] );
 		}
+		vUnchecked = vUncheckedNew;
 		if( vUncheckedNew.empty() )
 			break;
-		vUnchecked = vUncheckedNew;
 	}
+//	if( !vUnchecked.empty() ){
+//		cout<<"OperCand "<< OperCand <<endl;
+//		for(int i=0; i<vUnchecked.size(); i++){
+//			cout<<"["<<i<<"] "<< vUnchecked[i]->first() <<" vs "<< vUnchecked[i]->second()  <<endl;
+//		}
+//	}
+	assert( vUnchecked.empty() );
 	return ret;
 }
 
 static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
 	sort( vVarInfPtr.begin(), vVarInfPtr.end(), Var_Inf_t::Cmptor_t() );
 	reverse( vVarInfPtr.begin(), vVarInfPtr.end() );
+	
 	const Term_t& small = pObj->small();
 	const Term_t& large = pObj->large();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
+	vector<int> vOrder;
+
+	//for(int i=0; i<Diff.ndata(); i++){
+	for(int i=Diff.ndata(); i>=0; i--){
+		if( !Diff.val(i) )
+			continue;
+		if( 1==large.val(i) )
+			continue;
+		vOrder.push_back(i);
+	}
 	for(int i=0; i<Diff.ndata(); i++){
 		if( !Diff.val(i) )
 			continue;
+		if( 0==large.val(i) )
+			continue;
+		vOrder.push_back(i);
+	}
+
+	for(int i=0; i<vOrder.size(); i++){
+		int idx = vOrder[i];
 		Term_t Oper = Prog;
-		Oper.set(i,0);
+		Oper.set(idx,0);
 		Oper = Rev_QcostMinOper( Oper, vVarInfPtr, fixedBegin, fixedEnd );
 		
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
-		Gate.setFlip( i );
+		Gate.setFlip( idx );
 		Ntk.push_back( Gate );
-		Prog.flip(i);
+		Prog.flip( idx );
+
+		//cout <<" working on "<< small <<" vs "<< large <<"  \nOper "<< Oper <<" prog="<< Prog << endl;
 	}
+	assert( Prog == small );
 }
 
 static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
@@ -58,17 +91,34 @@ static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
 	const Term_t& large = pObj->large();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
+	vector<int> vOrder;
+
+	//for(int i=0; i<Diff.ndata(); i++){
+	for(int i=Diff.ndata(); i>=0; i--){
+		if( !Diff.val(i) )
+			continue;
+		if( 1==large.val(i) )
+			continue;
+		vOrder.push_back(i);
+	}
 	for(int i=0; i<Diff.ndata(); i++){
 		if( !Diff.val(i) )
 			continue;
+		if( 0==large.val(i) )
+			continue;
+		vOrder.push_back(i);
+	}
+
+	for(int i=0; i<vOrder.size(); i++){
+		int idx = vOrder[i];
 		Term_t Oper = Prog;
-		Oper.set(i,0);
+		Oper.set(idx,0);
 		
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
-		Gate.setFlip( i );
+		Gate.setFlip( idx );
 		Ntk.push_back( Gate );
-		Prog.flip(i);
+		Prog.flip( idx );
 	}
 }
 
