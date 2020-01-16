@@ -16,13 +16,15 @@ public:
 	typedef std::vector<BitPair_t * > vEntry_t;
 private:
 	vEntry_t _vEntry;
+	int _width;
 public:
-	Rev_Ttb_t(){}
-	Rev_Ttb_t( const Rev_Ttb_t& Ttb ){ dup(&Ttb); }
+	Rev_Ttb_t():_width(0){}
+	Rev_Ttb_t( const Rev_Ttb_t& Ttb ):_width(0){ dup(&Ttb); }
 	~Rev_Ttb_t(){ clear(); }
 	BitPair_t*& operator[]( size_t idx ) { return _vEntry[idx]; }
 	const BitPair_t* operator[]( size_t idx ) const { return _vEntry[idx]; }
-	int size() const { return _vEntry.size(); }
+	int size () const { return _vEntry.size(); }
+	int width() const { return _width; }
 	void clear(){
 		for(int i=0; i<_vEntry.size(); i++)
 			delete _vEntry[i];
@@ -54,7 +56,5 @@ public:
 	// duplicate ttb from pTtb 
 	void dup( const Rev_Ttb_t * pTtb );
 };
-
-extern int Rev_TtbEquivalant( const Rev_Ttb_t& Ttb1, const Rev_Ttb_t& Ttb2 );
 
 #endif

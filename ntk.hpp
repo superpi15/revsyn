@@ -17,6 +17,13 @@ public:
 		Flip
 	} Oper_t;
 	int width() const { return ndata(); }
+	int nCtrl() const {
+		int ret = 0;
+		for( int i=0; i<ndata(); i++ )
+			if( Ctrl == val(i) )
+				ret ++ ;
+		return ret;
+	}
 	void setCtrl( const Term_t& term ){
 		if( ndata() < term.ndata() )
 			resize( term.ndata() );
@@ -63,6 +70,12 @@ public:
 		clear();
 	}
 	int nLevel() const { return _vLevel.size(); }
+	int nCtrl() const {
+		int ret = 0;
+		for(int i=0; i<_vLevel.size(); i++)
+			ret += _vLevel[i]->nCtrl();
+		return ret;
+	}
 	void clear(){
 		for(int i=0; i<_vLevel.size(); i++)
 			delete _vLevel[i];
@@ -127,7 +140,5 @@ public:
 		return 1;
 	}
 };
-
-extern Rev_Ntk_t * Rev_Gbd( const Rev_Ttb_t& ttb );
 
 #endif
