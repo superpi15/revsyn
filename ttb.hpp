@@ -8,7 +8,8 @@
 
 #include "bitop.hpp"
 
-typedef std::pair<vLembit_t<1> , vLembit_t<1> > BitPair_t;
+typedef vLembit_t<1> Term_t;
+typedef std::pair<Term_t , Term_t > BitPair_t;
 
 class Rev_Ttb_t {
 public:
@@ -25,6 +26,7 @@ public:
 	void clear(){
 		for(int i=0; i<_vEntry.size(); i++)
 			delete _vEntry[i];
+		_vEntry.clear();
 	}
 	// add the pEntry to this ttb
 	void push_back( BitPair_t * pEntry ){

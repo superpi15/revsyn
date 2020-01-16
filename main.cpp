@@ -1,7 +1,7 @@
 #include <iostream>
 #include "ttb.hpp"
 #include "ntk.hpp"
-
+using namespace std;
 int main( int argc, char * argv[] ){
 	Rev_Ttb_t ttb;
 //	vLembit_t<1> word1, word2, word3;
@@ -22,10 +22,22 @@ int main( int argc, char * argv[] ){
 //	std::cout<<" relation: word1 < word2 ? " << (word1 < word2? "Yes":"No") <<std::endl;
 //	std::cout<<" relation: word1 > word2 ? " << (word1 > word2? "Yes":"No") <<std::endl;
 //	std::cout<<" relation: word1 == word1 ? " << (word1 == word1? "Yes":"No") <<std::endl;
+//	word1.print( std::cout ); std::cout<<" total length = "<< word1.ndata() <<std::endl;
+//	word1.flip(31);
+//	word1.print( std::cout ); std::cout<<" flip "<< 31 <<std::endl;
+//	word1.flip(0);
+//	word1.print( std::cout ); std::cout<<" flip "<< 0 <<std::endl;
+//	word1.flip(32);
+//	word1.print( std::cout ); std::cout<<" flip "<< 32 <<std::endl;
+//	word1.flip(40);
+//	word1.print( std::cout ); std::cout<<" flip "<< 40 <<std::endl;
 //	return 0;
 	if( !ttb.read(argv[1]) ){
 		std::cout<<"Parsing Error"<<std::endl;
 	}
-
-	Rev_Gbd(ttb);
+	cout<<" Spec: "<< argv[1] <<endl;
+	ttb.print( std::cout );
+	Rev_Ntk_t * pNtk = Rev_Gbd(ttb);
+	cout<<" Nkt: level="<<pNtk->nLevel() <<endl;
+	pNtk->print( std::cout );
 }

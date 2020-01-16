@@ -38,7 +38,7 @@ int Rev_Ttb_t::read( char * FileName ){
 
 void Rev_Ttb_t::print( std::ostream& ostr ) const {
 	for(int i=0; i<_vEntry.size(); i++){
-		_vEntry[i]->first .print( cout );
+		_vEntry[i]->first .print( cout ); ostr<<" ";
 		_vEntry[i]->second.print( cout );
 		cout << endl;
 	}
