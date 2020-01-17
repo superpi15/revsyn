@@ -44,6 +44,7 @@ void Rev_Ttb_t::print( std::ostream& ostr ) const {
 }
 
 void Rev_Ttb_t::dup( const Rev_Ttb_t * pTtb ){
+	_width = pTtb->width();
 	clear();
 	for(int i=0; i<pTtb->_vEntry.size(); i++)
 		push_back( pTtb->_vEntry[i] );

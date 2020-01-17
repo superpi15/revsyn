@@ -51,26 +51,11 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 	const Term_t& large = pObj->large();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
-	vector<int> vOrder;
 
-	//for(int i=0; i<Diff.ndata(); i++){
-	for(int i=Diff.ndata(); i>=0; i--){
-		if( !Diff.val(i) )
-			continue;
-		if( 1==large.val(i) )
-			continue;
-		vOrder.push_back(i);
-	}
 	for(int i=0; i<Diff.ndata(); i++){
 		if( !Diff.val(i) )
 			continue;
-		if( 0==large.val(i) )
-			continue;
-		vOrder.push_back(i);
-	}
-
-	for(int i=0; i<vOrder.size(); i++){
-		int idx = vOrder[i];
+		int idx = i;
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
 		Oper = Rev_QcostMinOper( Oper, vVarInfPtr, fixedBegin, fixedEnd );
@@ -81,7 +66,7 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 		Ntk.push_back( Gate );
 		Prog.flip( idx );
 
-		//cout <<" working on "<< small <<" vs "<< large <<"  \nOper "<< Oper <<" prog="<< Prog << endl;
+		//cout <<" working on "<< small <<" vs "<< large <<"  Oper "<< Oper <<" prog="<< Prog << endl;
 	}
 	assert( Prog == small );
 }
@@ -91,26 +76,11 @@ static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
 	const Term_t& large = pObj->large();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
-	vector<int> vOrder;
 
-	//for(int i=0; i<Diff.ndata(); i++){
-	for(int i=Diff.ndata(); i>=0; i--){
-		if( !Diff.val(i) )
-			continue;
-		if( 1==large.val(i) )
-			continue;
-		vOrder.push_back(i);
-	}
 	for(int i=0; i<Diff.ndata(); i++){
 		if( !Diff.val(i) )
 			continue;
-		if( 0==large.val(i) )
-			continue;
-		vOrder.push_back(i);
-	}
-
-	for(int i=0; i<vOrder.size(); i++){
-		int idx = vOrder[i];
+		int idx = i;
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
 		
@@ -119,6 +89,8 @@ static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
 		Gate.setFlip( idx );
 		Ntk.push_back( Gate );
 		Prog.flip( idx );
+
+		//cout <<" working on "<< small <<" vs "<< large <<"  Oper "<< Oper <<" prog="<< Prog << endl;
 	}
 }
 
@@ -127,8 +99,9 @@ static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
 	Rev_Ntk_t * pNtk;
 	vVarInf_t vVarInf;         // for qGBD only 
 	vVarInfPtr_t vVarInfPtr;   // for qGBD only 
+	int width = ttb.width();
 
-	pNtk = new Rev_Ntk_t;
+	pNtk = new Rev_Ntk_t( width );
 	// prepare array for sorting 
 	vSynObj_t vSynObj( ttb2.size() );
 	for(int i=0; i<vSynObj.size(); i++){
@@ -145,7 +118,7 @@ static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
 		}
 	}
 
-	Rev_Ntk_t NtkFront, NtkBack;
+	Rev_Ntk_t NtkFront(width), NtkBack(width);
 	for(int i=0; i<vSynObj.size(); i++){
 
 		//pick min-minterm, tie-break by hamdist
@@ -158,7 +131,7 @@ static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
 			}
 
 		bool fForward = vSynObj[i].isForward();
-		Rev_Ntk_t SubNtk;
+		Rev_Ntk_t SubNtk(width);
 
 		if( fQGBD ){
 			Rev_EntryQcostSyn( &vSynObj[i], SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );

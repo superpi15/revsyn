@@ -7,7 +7,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
-#include "lembit.hpp"
+#include "ttb.hpp"
 
 class Rev_Gate_t: vLembit_t<2> {
 public:
@@ -34,7 +34,7 @@ public:
 	void setFlip( unsigned int index ){
 		set(index, Flip);
 	}
-	Term_t ExtraCtrl(){
+	Term_t getCtrl(){
 		Term_t ret;
 		ret.resize(ndata());
 		for(int i=0; i<ndata(); i++)
@@ -42,7 +42,7 @@ public:
 				ret.set(i, 1);
 		return ret;
 	}
-	int ExtraFlip(){
+	int getFlip(){
 		for(int i=0; i<ndata(); i++)
 			if( val(i)==Flip )
 				return i;
@@ -65,11 +65,14 @@ public:
 class Rev_Ntk_t {
 	typedef std::vector<Rev_Gate_t * > vLevel_t;
 	vLevel_t _vLevel;
+	int _width;
 public:
+	Rev_Ntk_t( int nwidth ):_width(nwidth){}
 	~Rev_Ntk_t(){
 		clear();
 	}
 	int nLevel() const { return _vLevel.size(); }
+	int width () const { return _width; }
 	int nCtrl() const {
 		int ret = 0;
 		for(int i=0; i<_vLevel.size(); i++)
@@ -88,26 +91,29 @@ public:
 		_vLevel.push_back( new Rev_Gate_t(Gate) );
 	}
 	void Apply( Term_t& term ) const {
+		assert( width() == term.ndata() );
 		int Flip;
 		Term_t Ctrls;
 		for(int i=0; i<_vLevel.size(); i++){
-			Flip = _vLevel[i]->ExtraFlip();
+			Flip = _vLevel[i]->getFlip();
 			if( -1 == Flip )
 				continue;
-			Ctrls = _vLevel[i]->ExtraCtrl();
+			Ctrls = _vLevel[i]->getCtrl();
 			if( Ctrls != (Ctrls & term) )
 				continue;
 			term.flip(Flip);
 		}
 	}
+
 	void Apply( Rev_Ttb_t& Ttb ) const {
+		assert( width() == Ttb.width() );
 		int Flip;
 		Term_t Ctrls;
 		for(int i=0; i<_vLevel.size(); i++){
-			Flip = _vLevel[i]->ExtraFlip();
+			Flip = _vLevel[i]->getFlip();
 			if( -1 == Flip )
 				continue;
-			Ctrls = _vLevel[i]->ExtraCtrl();
+			Ctrls = _vLevel[i]->getCtrl();
 			for(int j=0; j<Ttb.size(); j++){
 				Term_t& iterm = Ttb[j]->first;
 				if( Ctrls != (Ctrls & iterm) )
@@ -116,10 +122,12 @@ public:
 			}
 		}
 	}
+
 	void Append( const Rev_Ntk_t& Ntk ){
 		for(int i=0; i<Ntk._vLevel.size(); i++ )
 			push_back( *Ntk._vLevel[i] );
 	}
+
 	void print( std::ostream& ostr ) const {
 		if( _vLevel.empty() )
 			return ;
@@ -131,6 +139,7 @@ public:
 			ostr<<std::endl;
 		}
 	}
+
 	int Verify( const Rev_Ttb_t& ttb ) const {
 		Rev_Ttb_t ttb2(ttb);
 		Apply(ttb2);
@@ -140,6 +149,9 @@ public:
 				return 0;
 		return 1;
 	}
+
+	int WriteReal( const char * FileName ) const ;
+	int WriteReal( std::ostream& ostr ) const ;
 };
 
 #endif

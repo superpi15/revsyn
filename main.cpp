@@ -8,6 +8,8 @@ using namespace std;
 
 int main( int argc, char * argv[] ){
 	int fVerify = 1;
+	int fDemo   = 0;
+
 	int mode = 0;
 	char * SpecName = NULL, * Output = NULL;
 	if( argc <= 2 ){
@@ -19,6 +21,10 @@ int main( int argc, char * argv[] ){
 	if( argc > 3 )
 		Output  = argv[3];
 
+
+	///////////////////////
+	// load specification
+	///////////////////////
 	Rev_Ttb_t ttb;
 	if( !ttb.read( SpecName ) ){
 		std::cout<<"Parsing Error"<<std::endl;
@@ -26,11 +32,15 @@ int main( int argc, char * argv[] ){
 	}
 	cout<<" Spec: "<< SpecName <<" nEntry= "<< ttb.size() <<endl;
 	
-	if( ttb.size() < 16 )
-		ttb.print( std::cout ); // print ttb 
-	else
-		cout << " Spec is too large. Skip printing "<<endl;
+	if( fDemo ){
+		ttb.print( std::cout ); 
+		cout<<endl;
+	}
 	
+
+	///////////////////////
+	// synthesize the circuit 
+	///////////////////////
 	Rev_Ntk_t * pNtk = NULL;
 	if( 0 == mode )
 		pNtk = Rev_GBD(ttb);
@@ -38,16 +48,29 @@ int main( int argc, char * argv[] ){
 		pNtk = Rev_qGBD(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
 
-	if( pNtk->nLevel() < 40 )
+	if( fDemo ){
 		pNtk->print( std::cout ); // print ntk
-	else
-		cout<< " Result circuit is too large. Skip printing "<<endl;
+		cout<<endl;
+	}
 
+
+	///////////////////////
+	// verification
+	///////////////////////
 	if( fVerify ){
 		if( ! pNtk->Verify(ttb) )
-			cout<<" Mismatch in implementation and spec. "<<endl;
+			cout<<" Verification: FAIL "<<endl;
 		else
-			cout<<" Ntk is correctly implemented the spec. "<<endl;
+			cout<<" Verification: PASS "<<endl;
+	}
+
+
+	///////////////////////
+	// write output to file
+	///////////////////////
+	if( Output ){
+		pNtk->WriteReal( Output );
+		cout<<" Write result to \'"<< Output <<"\'"<< endl;
 	}
 	
 	return 0;
