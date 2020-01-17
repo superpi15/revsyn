@@ -78,6 +78,7 @@ int main( int argc, char * argv[] ){
 	}
 	
 	delete pNtk;
+	ttb.clear();
 	return 0;
 }
 
