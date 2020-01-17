@@ -77,6 +77,7 @@ int main( int argc, char * argv[] ){
 		cout<<" Write result to \'"<< Output <<"\'"<< endl;
 	}
 	
+	delete pNtk;
 	return 0;
 }
 

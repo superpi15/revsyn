@@ -7,6 +7,7 @@ int Rev_Ntk_t::WriteReal( const char * FileName ) const {
 	ofstream ostr( FileName );
 	WriteReal(ostr);
 	ostr.close();
+	return 1;
 }
 
 int Rev_Ntk_t::WriteReal( ostream& ostr ) const {
@@ -47,4 +48,5 @@ int Rev_Ntk_t::WriteReal( ostream& ostr ) const {
 	}
 
 	ostr<<".end"<< endl;
+	return 1;
 }
