@@ -8,6 +8,11 @@
 #include <string>
 #include <cstring>
 
+#ifdef _MSC_VER
+#  include <intrin.h>
+#  define __builtin_popcount __popcnt
+#endif
+
 template<int WIDTH>
 class vLembit_t: private std::vector<unsigned int> {
 	unsigned int weight( unsigned int val ) const { return __builtin_popcount(val); }
