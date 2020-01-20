@@ -49,7 +49,10 @@ int main( int argc, char * argv[] ){
 	if( 0 == mode )
 		pNtk = Rev_GBD(ttb);
 	else
+	if( 1 == mode )
 		pNtk = Rev_qGBD(ttb);
+	else
+		pNtk = Rev_GBDL(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
 
 	if( fDemo ){

@@ -1,5 +1,6 @@
 #ifndef revsynUtil_hpp
 #define revsynUtil_hpp
+#include <cassert>
 
 class Syn_Obj_t {
 public:
@@ -9,7 +10,9 @@ public:
 	const Term_t& large() const { assert(_small>=0); return _small==1? pB->first: pB->second; }
 	const Term_t& first () const { return pB->first ; }
 	const Term_t& second() const { return pB->second; }
-	bool isForward() const { return _small==0; }
+	bool isForward() const { return 0 == _small; }
+	void setLegal( int val ) { assert( 0 <= val && val < 2); _small = val; }
+	bool isForwardLegal() const { return 0 == _small; }
 	Term_t& small() { assert(_small>=0); return _small==0? pB->first: pB->second; }
 	Term_t& large() { assert(_small>=0); return _small==1? pB->first: pB->second; }
 	Term_t& first (){ return pB->first ; }
