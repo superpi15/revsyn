@@ -79,6 +79,9 @@ int main( int argc, char * argv[] ){
 		pNtk->WriteReal( Output );
 		cout<<" Write result to \'"<< Output <<"\'"<< endl;
 	}
+
+	cout << "QCost = "<< pNtk->QCost() << endl; 
+	cout <<" Warning: please make sure the cost scheme is consistent with Revkit" << endl;
 	
 	delete pNtk;
 	ttb.clear();

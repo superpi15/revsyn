@@ -52,4 +52,19 @@ public:
 
 typedef std::vector<Var_Inf_t> vVarInf_t;
 typedef std::vector<Var_Inf_t*> vVarInfPtr_t;
+
+
+#include <set>
+class TermObj_t {
+public:
+	TermObj_t( const Term_t * npTerm, const Syn_Obj_t * npSrc ):pTerm(npTerm), pSrc(npSrc){}
+	const Term_t * pTerm;
+	const Syn_Obj_t * pSrc;
+	bool isLegal() const { return NULL != pSrc; }
+	const Syn_Obj_t * src() const { return pSrc; }
+	struct Cmptor_t {
+		bool operator()( const TermObj_t& Obj1, const TermObj_t& Obj2 ) const { return Obj1.pTerm < Obj2.pTerm; }
+	};
+};
+typedef std::set<TermObj_t, TermObj_t::Cmptor_t> TermObjSet_t;
 #endif

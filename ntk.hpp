@@ -150,6 +150,17 @@ public:
 		return 1;
 	}
 
+	int QCost() const {
+		int ret = 0;
+		const int TableSz = 11;
+		const int CostTable[] = {0,1,1,5,13,29,61,125,253,509,1021};
+		for(int i=0; i<_vLevel.size(); i++){
+			int nOper = _vLevel[i]->nCtrl() + 1;
+			ret += nOper < TableSz? CostTable[ nOper ]: (1<<nOper) - 3;
+		}
+		return ret;
+	}
+
 	int WriteReal( const char * FileName ) const ;
 	int WriteReal( std::ostream& ostr ) const ;
 };

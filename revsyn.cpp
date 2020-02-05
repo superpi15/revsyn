@@ -213,10 +213,12 @@ static int MinWeight( const vSynObj_t& vSynObj, const vSynObj_t::iterator unfixe
 	return ret;
 }
 
+static clock_t LHDclk = 0;
 // find upper-bound of legal fixing hamming distance
 static int LegalHammingDistUBound( const vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin ){
 	int minWeight = MinWeight( vSynObj, unfixedBegin );
 	int ret = -1;
+	clock_t clk = clock();
 	for(vSynObj_t::const_iterator uitr = unfixedBegin; uitr != vSynObj.end(); uitr++)
 	{
 		const Term_t& iTerm = uitr->first ();
@@ -232,6 +234,7 @@ static int LegalHammingDistUBound( const vSynObj_t& vSynObj, const vSynObj_t::it
 	}
 	//cout<< " ret = "<< ret <<endl;
 	assert( -1 != ret );
+	LHDclk += clock() - clk;
 	return ret;
 }
 
@@ -241,7 +244,9 @@ static bool Contain( const Term_t& prime, const Term_t& space ){
 	return ( prime == ( prime & space ) ) && ( prime != space );
 }
 
+static clock_t ISLclk = 0;
 static int IsLegalFix( const Term_t& prime, const vSynObj_t::iterator unfixedBegin, const vSynObj_t::iterator unfixedEnd ){
+	clock_t clk = clock();
 	for(vSynObj_t::iterator itr = unfixedBegin; itr != unfixedEnd; itr++)
 	{
 		const Term_t& iTerm = itr->first ();
@@ -249,10 +254,14 @@ static int IsLegalFix( const Term_t& prime, const vSynObj_t::iterator unfixedBeg
 		if( Contain( iTerm, prime ) || Contain( oTerm, prime ) )
 			return 0;
 	}
+	ISLclk += clock() - clk;
 	return 1;
 }
 
-static vSynObj_t::iterator SelectFix( vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin ){
+static clock_t DIFclk = 0, CTNclk = 0;
+static vSynObj_t::iterator SelectFix( vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin )
+{
+	clock_t clk;
 	int LegalDistUBound = LegalHammingDistUBound( vSynObj, unfixedBegin );
 
 	vSynObj_t::iterator ret = vSynObj.end();
@@ -260,13 +269,17 @@ static vSynObj_t::iterator SelectFix( vSynObj_t& vSynObj, const vSynObj_t::itera
 	{
 		const Term_t& iTerm = itr->first ();
 		const Term_t& oTerm = itr->second();
+		clk = clock();
 		int Dist = ( iTerm ^ oTerm ).weight();
+		DIFclk += clock() - clk;
 		if( Dist > LegalDistUBound )
 			continue;
 
 		// check legality 
+		clk = clock();
 		int nIllegal_i  = Contain( oTerm, iTerm );  // check if iTerm is illegal at beginning
 		int nIllegal_o  = Contain( iTerm, oTerm );  // check if oTerm is illegal at beginning
+		CTNclk += clock() - clk;
 
 		// test legality for all care-terms
 		if( 0 == nIllegal_i )
@@ -293,6 +306,116 @@ static vSynObj_t::iterator SelectFix( vSynObj_t& vSynObj, const vSynObj_t::itera
 	return ret;
 }
 
+static void tryInsertTermObj( vector< TermObjSet_t >& mW2Term, const Syn_Obj_t * pSrc, const Term_t& term )
+{
+	const int weight = term.weight();
+	const Term_t& CounterPart =  term == pSrc->first()? pSrc->second(): pSrc->first();
+	bool IOillegal = Contain( CounterPart, term );
+	TermObj_t Obj( &term, IOillegal? NULL: pSrc );
+	TermObjSet_t& TermObjSet = mW2Term[ weight ];
+	TermObjSet_t::iterator itr = TermObjSet.find( Obj );
+	if( TermObjSet.end() != itr ){
+		if( itr->src() == pSrc )
+			return;
+		if( itr->src()->hamdist() < pSrc->hamdist() )
+			return;
+		TermObjSet.erase( itr );
+	}
+	TermObjSet.insert(Obj);
+}
+
+static void LegalHamWeightGraph( vSynObj_t& vSynObj, vSynObj_t::iterator unfixedBegin, vector< TermObjSet_t >& Ret )
+{
+	if( vSynObj.empty() )
+		return;
+	vector< TermObjSet_t > mW2Term ;    // weight 2 terms 
+	mW2Term.resize( vSynObj.front().first().ndata() );
+	for( vSynObj_t::iterator itr = unfixedBegin; itr != vSynObj.end(); itr ++ ){
+		tryInsertTermObj( mW2Term, &*itr, itr->first () );
+		tryInsertTermObj( mW2Term, &*itr, itr->second() );
+	}
+	int nWeight = 0;
+	for(int i=0; i< mW2Term.size(); i++)
+		if( ! mW2Term[i].empty() )
+			nWeight ++;
+	Ret.resize( nWeight );
+	nWeight = 0;
+	for(int i=0; i< mW2Term.size(); i++)
+		if( ! mW2Term[i].empty() )
+			swap( Ret[ nWeight ++ ], mW2Term[i] );
+}
+
+
+static int IsLegalFix2( const Term_t& prime, int GroupId, vector< TermObjSet_t >& mW2Term ){
+	clock_t clk = clock();
+	for(int i = GroupId-1; i >= 0; i-- )
+	{
+		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr++)
+		{
+			const Term_t& term = * itr->pTerm;
+			if( Contain( term, prime ) )
+				return 0;
+		}
+	}
+	ISLclk += clock() - clk;
+	return 1;
+}
+
+static vSynObj_t::iterator SelectFix2( vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin ){
+	vector< TermObjSet_t > mW2Term;
+	LegalHamWeightGraph( vSynObj, unfixedBegin, mW2Term );
+	for(int i=0; i< mW2Term.size(); i++){
+		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
+			cout << *itr->pTerm << " ";
+		cout << endl;
+	}
+	cout<<endl;
+
+//	vSynObj_t::iterator ret = vSynObj.end();
+//	int LegalDistUBound = LegalHammingDistUBound( vSynObj, unfixedBegin );
+//	for(int i=0; i< mW2Term.size(); i++)
+//	{
+//		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
+//		{
+//			const Term_t& term = * itr->pTerm;
+//			int dist1 = itr->pSrc1->hamdist();
+//			int dist2 = itr->pSrc2? itr->pSrc2->hamdist(): term.ndata();
+//			int Dist = min( dist1, dist2 );
+//			if( Dist > LegalDistUBound )
+//				continue;
+//
+//			// check legality 
+			//
+//			int nIllegal_i  = Contain( oTerm, iTerm );  // check if iTerm is illegal at beginning
+//			int nIllegal_o  = Contain( iTerm, oTerm );  // check if oTerm is illegal at beginning
+			//
+//
+//			// test legality for all care-terms
+//			if( 0 == nIllegal_i )
+//				nIllegal_i += ! IsLegalFix( iTerm, unfixedBegin, vSynObj.end() );
+//			if( 0 == nIllegal_o )
+//				nIllegal_o += ! IsLegalFix( oTerm, unfixedBegin, vSynObj.end() );
+			//
+//			if( Dist < LegalDistUBound || vSynObj.end() == ret ){
+//				if( 0 == nIllegal_i )
+//					itr->setLegal(0);
+//				else
+//				if( 0 == nIllegal_o )
+//					itr->setLegal(1);
+//				else 
+//					continue;          // both iTerm & oTerm are illegal 
+//
+//				ret = itr;
+//				LegalDistUBound = Dist;
+//				//cout<<" is legal fix = "<< ret->first()<< " -> "<< ret->second() <<" LegalDistUBound= "<< LegalDistUBound << endl;
+//			}
+//		}
+//	}
+//	assert( vSynObj.end() != ret );
+//	//cout<<" selected fix = "<< ret->first()<< " -> "<< ret->second() <<" LegalDistUBound= "<< LegalDistUBound << endl;
+//	return ret;
+}
+
 Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
 	Rev_Ttb_t ttb2(ttb); // create a truth table same as ttb
 	Rev_Ntk_t * pNtk;
@@ -310,6 +433,8 @@ Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
 	pNtk = new Rev_Ntk_t( width );
 	Rev_Ntk_t NtkFront(width), NtkBack(width);
 	for(int i=0; i<ttb2.size(); i++){
+
+		//SelectFix2( vSynObj, vSynObj.begin() + i );
 
 		clk1 = clock();
 		vSynObj_t::iterator ret = SelectFix( vSynObj, vSynObj.begin() + i );
@@ -336,6 +461,10 @@ Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
 	NtkBack.reverse();
 	pNtk->Append( NtkBack  );
 	cout<<" Select Time = " << clk/CLOCKS_PER_SEC <<endl;
+	cout<<" LHD Time = " << LHDclk/CLOCKS_PER_SEC <<endl;
+	cout<<" ISL Time = " << ISLclk/CLOCKS_PER_SEC <<endl;
+	cout<<" DIF Time = " << DIFclk/CLOCKS_PER_SEC <<endl;
+	cout<<" CTN Time = " << CTNclk/CLOCKS_PER_SEC <<endl;
 	return pNtk;
 }
 
