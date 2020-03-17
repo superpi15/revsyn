@@ -52,7 +52,10 @@ int main( int argc, char * argv[] ){
 	if( 1 == mode )
 		pNtk = Rev_qGBD(ttb);
 	else
+	if( 2 == mode )
 		pNtk = Rev_GBDL(ttb);
+	else
+		pNtk = Rev_qGBDL(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
 
 	if( fDemo ){
@@ -89,7 +92,9 @@ int main( int argc, char * argv[] ){
 }
 
 
-
+static bool Contain( const Term_t& prime, const Term_t& space ){
+	return ( prime == ( prime & space ) ) && ( prime != space );
+}
 void demo_bit(){
 	Term_t word1, word2, word3;
 	//const char * str1 = "01011010010110101001000001100111011010100100000110011101";\
@@ -123,4 +128,11 @@ void demo_bit(){
 	cout<< word1 <<" flip "<< 32 <<endl;
 	word1.flip(40);
 	cout<< word1 <<" flip "<< 40 <<endl;
+
+	Term_t word5, word6;
+	const char * str3 = "101000100000000010";\
+	const char * str4 = "101000100000010010";
+	word5.setWord(str3);
+	word6.setWord(str4);
+	cout << Contain(word5,word6) << " "<< Contain(word6,word5);
 }

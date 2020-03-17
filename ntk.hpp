@@ -57,7 +57,7 @@ public:
 		return '?';
 	}
 	void print( std::ostream& ostr ) const {
-		for(int i=0; i<ndata(); i++)
+		for(int i=ndata()-1; i>=0; i--)
 			ostr << symbol(i);
 	}
 };
@@ -132,7 +132,7 @@ public:
 		if( _vLevel.empty() )
 			return ;
 		const int width = _vLevel.front()->width();
-		for(int i=0; i<width; i++){
+		for(int i=width-1; i>=0; i--){
 			for(int j=0; j<_vLevel.size(); j++){
 				ostr<<_vLevel[j]->symbol(i);
 			}

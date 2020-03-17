@@ -4,6 +4,32 @@
 #include <time.h>
 
 using namespace std;
+const TermObj_t TermObj_t::null = TermObj_t(NULL,NULL);;
+
+// test whether space contains prime 
+static bool Contain( const Term_t& prime, const Term_t& space ){
+	return ( prime == ( prime & space ) ) && ( prime != space );
+}
+
+static void FillOneFirstOrder( const Term_t& Diff, const Term_t& large, vector<int>& vOrder ){
+	for(int i=0; i<Diff.ndata(); i++){
+		int var = i;
+		if( !Diff.val(var) )
+			continue;
+		if( 1==large.val(var) )
+			continue;
+		vOrder.push_back(var);
+	}
+
+	for(int i=0; i<Diff.ndata(); i++){
+		int var = i;
+		if( !Diff.val(var) )
+			continue;
+		if( 0==large.val(var) )
+			continue;
+		vOrder.push_back(var);
+	}
+}
 
 static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
 	Term_t ret;
@@ -18,8 +44,12 @@ static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr
 	for( vSynObj_t::iterator itr = fixedBegin; itr != fixedEnd; itr ++ )
 		vUnchecked.push_back(itr);
 
-	for(int i=0; i<vVarInfPtr.size(); i++){
+	for(int i=0; i<vVarInfPtr.size(); i++){\
 		int var = vVarInfPtr[i]->VarId;
+	//for(int i=0; i<OperCand.ndata(); i++){\
+		int var = i;
+	//for(int i=OperCand.ndata()-1; i>=0; i--){\
+		int var = i;
 		if( 0==OperCand.val( var ) )
 			continue;
 		ret.set( var, 1 );
@@ -27,6 +57,11 @@ static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr
 		vector<vSynObj_t::iterator> vUncheckedNew;
 		for(int j=0; j<vUnchecked.size(); j++){
 			const Term_t& target = vUnchecked[j]->small();
+			//if(Contain(OperCand,target)){\
+				cout<<"OperCand is dominated "<< OperCand <<" by "<< target <<"  its pair is "<< vUnchecked[j]->large() <<std::endl;\
+			}
+			assert(!Contain(OperCand,target));
+
 			if( (ret != OperCand)? target == (ret | target) : false )
 				vUncheckedNew.push_back( vUnchecked[j] );
 		}
@@ -34,11 +69,14 @@ static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr
 		if( vUncheckedNew.empty() )
 			break;
 	}
+	//cout<<"OperCand "<< OperCand <<" ret ="<< ret<<endl;
 //	if( !vUnchecked.empty() ){
 //		cout<<"OperCand "<< OperCand <<endl;
 //		for(int i=0; i<vUnchecked.size(); i++){
 //			cout<<"["<<i<<"] "<< vUnchecked[i]->first() <<" vs "<< vUnchecked[i]->second()  <<endl;
 //		}
+//		std::cout<<"fixed count: "<< fixedEnd - fixedBegin <<std::endl;
+//		std::cout<<ret <<" vs "<< fixedBegin->small()<<std::endl;
 //	}
 	assert( vUnchecked.empty() );
 	return ret;
@@ -52,11 +90,21 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 	const Term_t& large = pObj->large();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
+	vector<int> vOrder;
 
-	for(int i=0; i<Diff.ndata(); i++){
-		if( !Diff.val(i) )
+	FillOneFirstOrder(Diff, large, vOrder);
+
+	
+
+	//std::cout<<"synthesize for \n";\
+	std::cout<< small <<" "<<large<<"\n";\
+	std::cout<<"diff = "<< Diff <<"\n";
+	for(int i=0; i<vOrder.size(); i++){
+	//for(int i=0; i<Diff.ndata(); i++){
+		//std::cout<< i <<" prog at "<< Prog <<std::endl;
+		int idx = vOrder[i];
+		if( !Diff.val(idx) )
 			continue;
-		int idx = i;
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
 		Oper = Rev_QcostMinOper( Oper, vVarInfPtr, fixedBegin, fixedEnd );
@@ -67,27 +115,11 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 		Ntk.push_back( Gate );
 		Prog.flip( idx );
 
-		//cout <<" working on "<< small <<" vs "<< large <<"  Oper "<< Oper <<" prog="<< Prog << endl;
+		//std::cout<<"target bit= "<<idx<<" prog = "<< Prog<<" get gate = "; Gate.print(std::cout); std::cout<<"\n";
+		//cout <<" working on "<< small <<" vs "<< large <<"  Oper "<< Oper <<" prog="<< Prog <<" get gate = "; Gate.print(std::cout); std::cout<<"\n";
 	}
+	//std::cout<<"prog vs. small= "<< Prog <<" "<< small<<std::endl;
 	assert( Prog == small );
-}
-
-static void FillOneFirstOrder( const Term_t& Diff, const Term_t& large, vector<int>& vOrder ){
-	for(int i=0; i<Diff.ndata(); i++){
-		if( !Diff.val(i) )
-			continue;
-		if( 1==large.val(i) )
-			continue;
-		vOrder.push_back( i );
-	}
-
-	for(int i=0; i<Diff.ndata(); i++){
-		if( !Diff.val(i) )
-			continue;
-		if( 0==large.val(i) )
-			continue;
-		vOrder.push_back( i );
-	}
 }
 
 static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
@@ -197,6 +229,7 @@ Rev_Ntk_t * Rev_qGBD( const Rev_Ttb_t& ttb ){
 }
 
 
+// find min weight over unfixed terms
 static int MinWeight( const vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin ){
 	int ret = -1;
 	int weight = 0;
@@ -239,10 +272,6 @@ static int LegalHammingDistUBound( const vSynObj_t& vSynObj, const vSynObj_t::it
 }
 
 
-// test whether space contains prime 
-static bool Contain( const Term_t& prime, const Term_t& space ){
-	return ( prime == ( prime & space ) ) && ( prime != space );
-}
 
 static clock_t ISLclk = 0;
 static int IsLegalFix( const Term_t& prime, const vSynObj_t::iterator unfixedBegin, const vSynObj_t::iterator unfixedEnd ){
@@ -310,17 +339,20 @@ static void tryInsertTermObj( vector< TermObjSet_t >& mW2Term, const Syn_Obj_t *
 {
 	const int weight = term.weight();
 	const Term_t& CounterPart =  term == pSrc->first()? pSrc->second(): pSrc->first();
-	bool IOillegal = Contain( CounterPart, term );
-	TermObj_t Obj( &term, IOillegal? NULL: pSrc );
+	//bool IOillegal = Contain( CounterPart, term );
+	TermObj_t Obj( &term, pSrc );
 	TermObjSet_t& TermObjSet = mW2Term[ weight ];
-	TermObjSet_t::iterator itr = TermObjSet.find( Obj );
-	if( TermObjSet.end() != itr ){
-		if( itr->src() == pSrc )
-			return;
-		if( itr->src()->hamdist() < pSrc->hamdist() )
-			return;
-		TermObjSet.erase( itr );
-	}
+//	TermObjSet_t::iterator itr = TermObjSet.find( Obj );
+//	if( TermObjSet.end() != itr ){
+//		return;
+//		//if( itr->src() == pSrc )\
+//			return;
+//		//if( itr->src()->hamdist() < pSrc->hamdist() )\
+//			return;
+//		//if(!itr->isLegal() )  // the term has been denoted as illegal fix\
+//			return;
+//		TermObjSet.erase( itr );
+//	}
 	TermObjSet.insert(Obj);
 }
 
@@ -328,21 +360,22 @@ static void LegalHamWeightGraph( vSynObj_t& vSynObj, vSynObj_t::iterator unfixed
 {
 	if( vSynObj.empty() )
 		return;
-	vector< TermObjSet_t > mW2Term ;    // weight 2 terms 
-	mW2Term.resize( vSynObj.front().first().ndata() );
+	vector< TermObjSet_t >& mW2Term = Ret;    // weight to terms 
+	mW2Term.clear();
+	mW2Term.resize( vSynObj.front().first().ndata() + 1 );
 	for( vSynObj_t::iterator itr = unfixedBegin; itr != vSynObj.end(); itr ++ ){
 		tryInsertTermObj( mW2Term, &*itr, itr->first () );
 		tryInsertTermObj( mW2Term, &*itr, itr->second() );
 	}
-	int nWeight = 0;
-	for(int i=0; i< mW2Term.size(); i++)
-		if( ! mW2Term[i].empty() )
-			nWeight ++;
-	Ret.resize( nWeight );
-	nWeight = 0;
-	for(int i=0; i< mW2Term.size(); i++)
-		if( ! mW2Term[i].empty() )
-			swap( Ret[ nWeight ++ ], mW2Term[i] );
+//	int nWeight = 0;
+//	for(int i=0; i< mW2Term.size(); i++)
+//		if( ! mW2Term[i].empty() )
+//			nWeight ++;
+//	Ret.resize( nWeight );
+//	nWeight = 0;
+//	for(int i=0; i< mW2Term.size(); i++)
+//		if( ! mW2Term[i].empty() )
+//			swap( Ret[ nWeight ++ ], mW2Term[i] );
 }
 
 
@@ -361,112 +394,202 @@ static int IsLegalFix2( const Term_t& prime, int GroupId, vector< TermObjSet_t >
 	return 1;
 }
 
-static vSynObj_t::iterator SelectFix2( vSynObj_t& vSynObj, const vSynObj_t::iterator unfixedBegin ){
-	vector< TermObjSet_t > mW2Term;
-	LegalHamWeightGraph( vSynObj, unfixedBegin, mW2Term );
-	for(int i=0; i< mW2Term.size(); i++){
-		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
-			cout << *itr->pTerm << " ";
-		cout << endl;
-	}
-	cout<<endl;
-
-//	vSynObj_t::iterator ret = vSynObj.end();
-//	int LegalDistUBound = LegalHammingDistUBound( vSynObj, unfixedBegin );
-//	for(int i=0; i< mW2Term.size(); i++)
-//	{
-//		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
-//		{
-//			const Term_t& term = * itr->pTerm;
-//			int dist1 = itr->pSrc1->hamdist();
-//			int dist2 = itr->pSrc2? itr->pSrc2->hamdist(): term.ndata();
-//			int Dist = min( dist1, dist2 );
-//			if( Dist > LegalDistUBound )
-//				continue;
-//
-//			// check legality 
-			//
-//			int nIllegal_i  = Contain( oTerm, iTerm );  // check if iTerm is illegal at beginning
-//			int nIllegal_o  = Contain( iTerm, oTerm );  // check if oTerm is illegal at beginning
-			//
-//
-//			// test legality for all care-terms
-//			if( 0 == nIllegal_i )
-//				nIllegal_i += ! IsLegalFix( iTerm, unfixedBegin, vSynObj.end() );
-//			if( 0 == nIllegal_o )
-//				nIllegal_o += ! IsLegalFix( oTerm, unfixedBegin, vSynObj.end() );
-			//
-//			if( Dist < LegalDistUBound || vSynObj.end() == ret ){
-//				if( 0 == nIllegal_i )
-//					itr->setLegal(0);
-//				else
-//				if( 0 == nIllegal_o )
-//					itr->setLegal(1);
-//				else 
-//					continue;          // both iTerm & oTerm are illegal 
-//
-//				ret = itr;
-//				LegalDistUBound = Dist;
-//				//cout<<" is legal fix = "<< ret->first()<< " -> "<< ret->second() <<" LegalDistUBound= "<< LegalDistUBound << endl;
-//			}
-//		}
-//	}
-//	assert( vSynObj.end() != ret );
-//	//cout<<" selected fix = "<< ret->first()<< " -> "<< ret->second() <<" LegalDistUBound= "<< LegalDistUBound << endl;
-//	return ret;
+inline static int countOneNum(vVarInf_t& vOneInf, const Term_t& term){
+	int ret = 0;
+	for(int i=0; i<term.ndata(); i++)
+		if(term.val(i))
+			ret += vOneInf[i].nCtrAbl;
+	return ret;
 }
 
-Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
+//static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, const vSynObj_t::iterator unfixedBegin, const vSynObj_t::iterator unfixedEnd ){
+static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf ){
+//	for(int i=0; i< mW2Term.size(); i++){
+//		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
+//			cout << *itr->pTerm << " ";
+//		cout << endl;
+//	}
+//	cout<<endl;
+	TermObj_t ret = TermObj_t::null;
+	int retWeight;
+	int retOneNum, curOneNum;
+	for(int i=0; i< mW2Term.size(); i++){
+		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ ){
+			//if( !itr->isLegal() )\
+				break;
+			//if( !IsLegalFix( *itr->pTerm, unfixedBegin, unfixedEnd ))\
+				continue;
+			if( !IsLegalFix2(* itr->pTerm, i, mW2Term))\
+				continue;
+
+			curOneNum = countOneNum(vOneInf, itr->pSrc->first ());
+			curOneNum+= countOneNum(vOneInf, itr->pSrc->second());
+			//if(ret == TermObj_t::null? true: itr->pSrc->maxWeight() > ret.pSrc->maxWeight()) // 
+			//if(ret == TermObj_t::null? true: (itr->pTerm->weight() > ret.pTerm->weight()))
+			//if(ret == TermObj_t::null? true: (itr->pSrc->another(*itr->pTerm).weight() > ret.pSrc->another(*ret.pTerm).weight()))
+			//if(ret == TermObj_t::null? true: (*itr->pTerm > *ret.pTerm))                       // lexical greatest first
+			if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() < ret.pSrc->hamdist()))     // smallest cost 
+			//if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
+			//if(ret == TermObj_t::null? true: (curOneNum != retOneNum? curOneNum < retOneNum: *itr->pTerm < *ret.pTerm))
+			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() != ret.pSrc->hamdist()? itr->pSrc->hamdist() < ret.pSrc->hamdist(): (*itr->pTerm < *ret.pTerm)))     // smallest cost 
+				ret = * itr, retWeight = i, retOneNum = curOneNum;
+		}
+	}
+	return ret;
+}
+
+inline static void addOneInf(vVarInf_t& vOneInf, Term_t& term){
+	for(int i=0; i<term.ndata(); i++)
+		if(term.val(i))
+			vOneInf[i].nCtrAbl ++ ;
+}
+inline static void eraseOneInf(vVarInf_t& vOneInf, Term_t& term){
+	for(int i=0; i<term.ndata(); i++)
+		if(term.val(i))
+			vOneInf[i].nCtrAbl -- ;
+}
+
+Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
+	
 	Rev_Ttb_t ttb2(ttb); // create a truth table same as ttb
 	Rev_Ntk_t * pNtk;
 	vVarInf_t vVarInf;         // for qGBD only 
 	vVarInfPtr_t vVarInfPtr;   // for qGBD only 
+
+	vVarInf_t vOneInf;         // for qGBD only 
 	int width = ttb.width();
 	clock_t clk, clk1;
 	clk = 0;
 
 	// prepare array for sorting 
 	vSynObj_t vSynObj( ttb2.size() );
-	for(int i=0; i<vSynObj.size(); i++)
+	for(int i=0; i<vSynObj.size(); i++){
 		vSynObj[i] = Syn_Obj_t( ttb2[i] );
+		vSynObj[i].update_small();
+	}
+
+	if( fQGBD ){
+		vVarInf.resize( ttb.width() );
+		vVarInfPtr.resize( ttb.width() );
+		for(int i=0; i<vVarInf.size(); i++){
+			vVarInf[i].VarId = i;
+			vVarInfPtr[i] = &vVarInf[i];
+		}
+
+
+		vOneInf.resize( ttb.width() );
+		for(int i=0; i<vOneInf.size(); i++)
+			vOneInf[i].VarId = i;
+		for(int i=0; i<vSynObj.size(); i++){
+			addOneInf(vOneInf, ttb2[i]->first );
+			addOneInf(vOneInf, ttb2[i]->second);
+		}
+		printf("one ctrl:\n");
+		for(int i=0; i<vOneInf.size(); i++)
+			printf("%d ", vOneInf[i].nCtrAbl);
+		printf("\n");
+	}
 
 	pNtk = new Rev_Ntk_t( width );
 	Rev_Ntk_t NtkFront(width), NtkBack(width);
 	for(int i=0; i<ttb2.size(); i++){
-
-		//SelectFix2( vSynObj, vSynObj.begin() + i );
-
+		vector< TermObjSet_t > mW2Term;
+		TermObj_t tar;
 		clk1 = clock();
-		vSynObj_t::iterator ret = SelectFix( vSynObj, vSynObj.begin() + i );
+		LegalHamWeightGraph( vSynObj, vSynObj.begin() + i, mW2Term );
+//		std::cout<<"legal hw graph:\n";
+//		for(int j=0; j<mW2Term.size(); j++){
+//			std::cout<<j<<" ";
+//			for(TermObjSet_t::iterator itr=mW2Term[j].begin(); itr!=mW2Term[j].end(); itr++)
+//				std::cout<< *itr->pTerm<< " ";
+//			std::cout<<"\n";
+//		}
+//		std::cout<<"\n";
+		tar = SelectFix2( mW2Term, vOneInf );
+		//tar = SelectFix2( mW2Term, vSynObj.begin() + i, vSynObj.end() );
+		assert(tar!=TermObj_t::null);
+		assert(tar.isLegal());
 		clk += clock() - clk1;
 
-		bool fForward = ret->isForwardLegal();
 		Rev_Ntk_t SubNtk(width);
-		Rev_EntrySimpleSyn( &*ret, SubNtk );            // synthesis for one IO pair
-		swap( *(vSynObj.begin()+i), *ret );
+		Syn_Obj_t ret(tar.pSrc->pB);
+		bool fForward = *tar.pTerm==tar.pSrc->first();
+
+		//std::cout<<"fix " << *tar.pTerm<<" in the pair: ";\
+		tar.pSrc->pB->first.print(std::cout); std::cout <<" "; tar.pSrc->pB->second.print(std::cout);  std::cout<<"\n";
+
+		ret.update_small(fForward? 0: 1);
+
+		Syn_Obj_t * addr = (Syn_Obj_t*)tar.pSrc;
+		addr->update_small(fForward? 0: 1);
+		int prev_idx = addr - &*vSynObj.begin();
+		mW2Term.clear();
+		swap( *(vSynObj.begin()+i), *addr );
+
+
+		for(int j=0; j<=i; j++){
+			if(Contain(*tar.pTerm,vSynObj[j].small())){
+				std::cout<<"!!! "<< * tar.pTerm <<" "<<vSynObj[j].small()<<std::endl;
+			}
+			assert(!Contain(*tar.pTerm,vSynObj[j].small()));
+		}
+		//std::cout<<"current: \n";\
+		for(int j=0; j<vSynObj.size(); j++){\
+			std::cout<<j<<" "<<vSynObj[j].first()<<" "<<vSynObj[j].second() <<std::endl;\
+		}
+
+		if( fQGBD ){
+			Rev_EntryQcostSyn( &ret, SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
+		} else {
+			Rev_EntrySimpleSyn( &ret, SubNtk );            // synthesis for one IO pair
+		}
+
 		if( 0==SubNtk.nLevel() )
 			continue;
-
-
-		for(int j=i; j<vSynObj.size(); j++)
+		
+		for(int j=i; j<vSynObj.size(); j++){
+			if( fQGBD )
+				eraseOneInf(vOneInf, fForward? vSynObj[j].second(): vSynObj[j].first ());
 			SubNtk.Apply( fForward? vSynObj[j].second(): vSynObj[j].first () );
+			if( fQGBD )
+				addOneInf(vOneInf, fForward? vSynObj[j].second(): vSynObj[j].first ());
+			vSynObj[j].update_small();
+		}
 
+		if( fQGBD ){
+			Term_t& term = vSynObj[i].first();
+			for(int j=0; j<term.ndata(); j++)
+				if( 0==term.val(j) )
+					vVarInf[j].nCtrAbl ++ ;
+		}
 		
 		if( fForward )
 			NtkBack .Append( SubNtk );
 		else
 			NtkFront.Append( SubNtk );
 	}
+
+	printf("one ctrl:\n");
+	for(int i=0; i<vOneInf.size(); i++)
+		printf("%d ", vOneInf[i].nCtrAbl);
+	printf("\n");
+
 	pNtk->Append( NtkFront );
 	NtkBack.reverse();
 	pNtk->Append( NtkBack  );
-	cout<<" Select Time = " << clk/CLOCKS_PER_SEC <<endl;
-	cout<<" LHD Time = " << LHDclk/CLOCKS_PER_SEC <<endl;
-	cout<<" ISL Time = " << ISLclk/CLOCKS_PER_SEC <<endl;
-	cout<<" DIF Time = " << DIFclk/CLOCKS_PER_SEC <<endl;
-	cout<<" CTN Time = " << CTNclk/CLOCKS_PER_SEC <<endl;
+	//cout<<" Select Time = " << clk/CLOCKS_PER_SEC <<endl;
+	//cout<<" LHD Time = " << LHDclk/CLOCKS_PER_SEC <<endl;
+	//cout<<" ISL Time = " << ISLclk/CLOCKS_PER_SEC <<endl;
+	//cout<<" DIF Time = " << DIFclk/CLOCKS_PER_SEC <<endl;
+	//cout<<" CTN Time = " << CTNclk/CLOCKS_PER_SEC <<endl;
 	return pNtk;
 }
 
 
+Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
+	return _Rev_GBDL(ttb, false);
+}
 
+Rev_Ntk_t * Rev_qGBDL( const Rev_Ttb_t& ttb ){
+	return _Rev_GBDL(ttb, true);
+}

@@ -7,6 +7,7 @@
 #include <utility>
 #include <string>
 #include <cstring>
+#include <stdio.h>
 
 #ifdef _MSC_VER
 #  include <intrin.h>
