@@ -402,17 +402,34 @@ inline static int countOneNum(vVarInf_t& vOneInf, const Term_t& term){
 	return ret;
 }
 
+static inline int OneGateAssumeCost(TermObj_t * pTermObj, vSynObj_t::iterator fixedBegin, vSynObj_t::iterator fixedEnd, vVarInfPtr_t& vVarInfPtr){
+	Rev_Ntk_t tmpGate(pTermObj->pTerm->ndata());
+	Syn_Obj_t * pObj = (Syn_Obj_t*) pTermObj->pSrc;
+	
+	pObj->update_small(*pTermObj->pTerm==pTermObj->pSrc->first()? 0: 1); // assume the direction
+	std::swap( *fixedEnd, *pObj );	// assume
+	
+	Rev_EntryQcostSyn( &*pObj, tmpGate, vVarInfPtr, fixedBegin, fixedEnd + 1 );
+	
+	pObj->update_small(); 			// restore 
+	std::swap( *fixedEnd, *pObj );	// restore 
+	return tmpGate.QCost();
+}
+
 //static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, const vSynObj_t::iterator unfixedBegin, const vSynObj_t::iterator unfixedEnd ){
-static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf ){
+static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf, vVarInfPtr_t& vVarInfPtr, vSynObj_t::iterator fixedBegin, vSynObj_t::iterator fixedEnd ){
 //	for(int i=0; i< mW2Term.size(); i++){
 //		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ )
 //			cout << *itr->pTerm << " ";
 //		cout << endl;
 //	}
 //	cout<<endl;
+	bool fExactCost = false;
 	TermObj_t ret = TermObj_t::null;
 	int retWeight;
 	int retOneNum, curOneNum;
+	int retCost, curCost;
+	//Rev_EntryQcostSyn( &ret, SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
 	for(int i=0; i< mW2Term.size(); i++){
 		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ ){
 			//if( !itr->isLegal() )\
@@ -424,15 +441,27 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 
 			curOneNum = countOneNum(vOneInf, itr->pSrc->first ());
 			curOneNum+= countOneNum(vOneInf, itr->pSrc->second());
+			if( fExactCost ){
+				curCost   = OneGateAssumeCost((TermObj_t*)&*itr,fixedBegin,fixedEnd,vVarInfPtr);
+				if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
+					ret = * itr, retCost = curCost;
+				continue;
+			}
+//			Rev_Ntk_t tmpGate(itr->pTerm->ndata());
+//			Syn_Obj_t * pObj = (Syn_Obj_t*) itr->pSrc;
+//			pObj->update_small(itr->pTerm==itr->pSrc->first()? 0: 1); // assume the direction
+//			Rev_EntryQcostSyn( &*pObj, tmpGate, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
+//			pObj->update_small(); // restore 
 			//if(ret == TermObj_t::null? true: itr->pSrc->maxWeight() > ret.pSrc->maxWeight()) // 
 			//if(ret == TermObj_t::null? true: (itr->pTerm->weight() > ret.pTerm->weight()))
 			//if(ret == TermObj_t::null? true: (itr->pSrc->another(*itr->pTerm).weight() > ret.pSrc->another(*ret.pTerm).weight()))
 			//if(ret == TermObj_t::null? true: (*itr->pTerm > *ret.pTerm))                       // lexical greatest first
 			if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() < ret.pSrc->hamdist()))     // smallest cost 
+			//if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
 			//if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
 			//if(ret == TermObj_t::null? true: (curOneNum != retOneNum? curOneNum < retOneNum: *itr->pTerm < *ret.pTerm))
 			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() != ret.pSrc->hamdist()? itr->pSrc->hamdist() < ret.pSrc->hamdist(): (*itr->pTerm < *ret.pTerm)))     // smallest cost 
-				ret = * itr, retWeight = i, retOneNum = curOneNum;
+				ret = * itr, retWeight = i, retOneNum = curOneNum, retCost = curCost;
 		}
 	}
 	return ret;
@@ -505,7 +534,7 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 //			std::cout<<"\n";
 //		}
 //		std::cout<<"\n";
-		tar = SelectFix2( mW2Term, vOneInf );
+		tar = SelectFix2( mW2Term, vOneInf, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i );
 		//tar = SelectFix2( mW2Term, vSynObj.begin() + i, vSynObj.end() );
 		assert(tar!=TermObj_t::null);
 		assert(tar.isLegal());
