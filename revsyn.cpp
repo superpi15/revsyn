@@ -1,6 +1,7 @@
 #include "ttb.hpp"
 #include "ntk.hpp"
 #include "revsynUtil.hpp"
+#include "revsyn_.hpp"
 #include <time.h>
 
 using namespace std;
@@ -31,7 +32,7 @@ static void FillOneFirstOrder( const Term_t& Diff, const Term_t& large, vector<i
 	}
 }
 
-static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
+static Term_t Rev_QcostMinOper(int fill01, const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
 	Term_t ret;
 	vector<vSynObj_t::iterator> vUnchecked;
 
@@ -47,7 +48,8 @@ static Term_t Rev_QcostMinOper( const Term_t& OperCand, vVarInfPtr_t& vVarInfPtr
 	for(int i=0; i<vVarInfPtr.size(); i++){\
 		int var = vVarInfPtr[i]->VarId;
 	//for(int i=0; i<OperCand.ndata(); i++){\
-		int var = i;
+		int var = fill01? i: (OperCand.ndata()-i-1);
+		//int var = fill01? OperCand.ndata()-i-1: i;
 	//for(int i=OperCand.ndata()-1; i>=0; i--){\
 		int var = i;
 		if( 0==OperCand.val( var ) )
@@ -94,8 +96,6 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 
 	FillOneFirstOrder(Diff, large, vOrder);
 
-	
-
 	//std::cout<<"synthesize for \n";\
 	std::cout<< small <<" "<<large<<"\n";\
 	std::cout<<"diff = "<< Diff <<"\n";
@@ -107,7 +107,7 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 			continue;
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
-		Oper = Rev_QcostMinOper( Oper, vVarInfPtr, fixedBegin, fixedEnd );
+		Oper = Rev_QcostMinOper(small.val(idx), Oper, vVarInfPtr, fixedBegin, fixedEnd );
 		
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
@@ -144,88 +144,6 @@ static void Rev_EntrySimpleSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk ){
 
 		//cout <<" working on "<< small <<" vs "<< large <<"  Oper "<< Oper <<" prog="<< Prog << endl;
 	}
-}
-
-static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
-	Rev_Ttb_t ttb2(ttb); // create a truth table same as ttb
-	Rev_Ntk_t * pNtk;
-	vVarInf_t vVarInf;         // for qGBD only 
-	vVarInfPtr_t vVarInfPtr;   // for qGBD only 
-	int width = ttb.width();
-
-	pNtk = new Rev_Ntk_t( width );
-	// prepare array for sorting 
-	vSynObj_t vSynObj( ttb2.size() );
-	for(int i=0; i<vSynObj.size(); i++){
-		vSynObj[i] = Syn_Obj_t( ttb2[i] );
-		vSynObj[i].update_small();
-	}
-	
-	if( fQGBD ){
-		vVarInf.resize( ttb.width() );
-		vVarInfPtr.resize( ttb.width() );
-		for(int i=0; i<vVarInf.size(); i++){
-			vVarInf[i].VarId = i;
-			vVarInfPtr[i] = &vVarInf[i];
-		}
-	}
-
-	Rev_Ntk_t NtkFront(width), NtkBack(width);
-	for(int i=0; i<vSynObj.size(); i++){
-
-		//pick min-minterm, tie-break by hamdist
-		std::sort( vSynObj.begin()+i, vSynObj.end(), Syn_Obj_t::Cmptor_t() );
-		
-		if( i+1<vSynObj.size() )
-			if( vSynObj[i].small()==vSynObj[i+1].small() ){       // check tie-breack condition
-				if( vSynObj[i].hamdist()>vSynObj[i+1].hamdist() ) // select smaller hamming distance
-					swap( vSynObj[i], vSynObj[i+1] );
-			}
-
-		bool fForward = vSynObj[i].isForward();
-		Rev_Ntk_t SubNtk(width);
-
-		if( fQGBD ){
-			Rev_EntryQcostSyn( &vSynObj[i], SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
-		} else {
-			Rev_EntrySimpleSyn( &vSynObj[i], SubNtk );            // synthesis for one IO pair
-		}
-		
-		if( 0==SubNtk.nLevel() )
-			continue;
-
-		for(int j=i; j<vSynObj.size(); j++){
-			SubNtk.Apply( fForward? vSynObj[j].second(): vSynObj[j].first () );
-			vSynObj[j].update_small();
-		}
-
-
-		if( fQGBD ){
-			Term_t& term = vSynObj[i].first();
-			for(int j=0; j<term.ndata(); j++)
-				if( 0==term.val(j) )
-					vVarInf[j].nCtrAbl ++ ;
-		}
-
-
-		if( fForward )
-			NtkBack .Append( SubNtk );
-		else
-			NtkFront.Append( SubNtk );
-	}
-	pNtk->Append( NtkFront );
-	NtkBack.reverse();
-	pNtk->Append( NtkBack  );
-	return pNtk;
-}
-
-
-Rev_Ntk_t * Rev_GBD( const Rev_Ttb_t& ttb ){
-	return _Rev_GBD( ttb, false );
-}
-
-Rev_Ntk_t * Rev_qGBD( const Rev_Ttb_t& ttb ){
-	return _Rev_GBD( ttb, true );
 }
 
 
@@ -424,27 +342,46 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 //		cout << endl;
 //	}
 //	cout<<endl;
-	bool fExactCost = false;
+	bool fExactCost = true;
 	TermObj_t ret = TermObj_t::null;
-	int retWeight;
+	int retWeight, curWeight;
 	int retOneNum, curOneNum;
 	int retCost, curCost;
+	int retLead1, curLead1;
+	int retLead12, curLead12;
+	int retDst, curDst;
 	//Rev_EntryQcostSyn( &ret, SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
 	for(int i=0; i< mW2Term.size(); i++){
 		for(TermObjSet_t::iterator itr = mW2Term[i].begin(); itr != mW2Term[i].end(); itr ++ ){
+			if( !IsLegalFix2(* itr->pTerm, i, mW2Term))\
+				continue;
 			//if( !itr->isLegal() )\
 				break;
 			//if( !IsLegalFix( *itr->pTerm, unfixedBegin, unfixedEnd ))\
 				continue;
-			if( !IsLegalFix2(* itr->pTerm, i, mW2Term))\
+			curLead1 = itr->pTerm->leading1();
+			curLead12= itr->pSrc->another(*itr->pTerm).leading1();
+			curDst   = itr->pSrc->hamdist();
+
+			curWeight = itr->pTerm->weight();
+			// select larger hamming weight
+			if(ret != TermObj_t::null && retWeight > curWeight)\
 				continue;
+			// select larger hamming distance
+			//if(ret != TermObj_t::null && retDst > curDst)\
+				continue;
+			//if(ret != TermObj_t::null && retLead1 > curLead1)\
+				continue;\
+			if(ret != TermObj_t::null && retLead12< curLead12)\
+				continue;
+
 
 			curOneNum = countOneNum(vOneInf, itr->pSrc->first ());
 			curOneNum+= countOneNum(vOneInf, itr->pSrc->second());
 			if( fExactCost ){
 				curCost   = OneGateAssumeCost((TermObj_t*)&*itr,fixedBegin,fixedEnd,vVarInfPtr);
 				if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
-					ret = * itr, retCost = curCost;
+					ret = * itr, retCost = curCost, retWeight = curWeight, retLead1 = curLead1, retLead12 = curLead12, retDst = curDst;
 				continue;
 			}
 //			Rev_Ntk_t tmpGate(itr->pTerm->ndata());
@@ -456,12 +393,12 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 			//if(ret == TermObj_t::null? true: (itr->pTerm->weight() > ret.pTerm->weight()))
 			//if(ret == TermObj_t::null? true: (itr->pSrc->another(*itr->pTerm).weight() > ret.pSrc->another(*ret.pTerm).weight()))
 			//if(ret == TermObj_t::null? true: (*itr->pTerm > *ret.pTerm))                       // lexical greatest first
-			if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() < ret.pSrc->hamdist()))     // smallest cost 
+			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() < ret.pSrc->hamdist()))     // smallest cost 
 			//if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
-			//if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
+			if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
 			//if(ret == TermObj_t::null? true: (curOneNum != retOneNum? curOneNum < retOneNum: *itr->pTerm < *ret.pTerm))
 			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() != ret.pSrc->hamdist()? itr->pSrc->hamdist() < ret.pSrc->hamdist(): (*itr->pTerm < *ret.pTerm)))     // smallest cost 
-				ret = * itr, retWeight = i, retOneNum = curOneNum, retCost = curCost;
+				ret = * itr, retCost = curCost, retWeight = curWeight, retLead1 = curLead1, retLead12 = curLead12;
 		}
 	}
 	return ret;
@@ -497,7 +434,7 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 		vSynObj[i].update_small();
 	}
 
-	if( fQGBD ){
+	if( fQGBD || true){
 		vVarInf.resize( ttb.width() );
 		vVarInfPtr.resize( ttb.width() );
 		for(int i=0; i<vVarInf.size(); i++){
@@ -573,9 +510,7 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 			Rev_EntrySimpleSyn( &ret, SubNtk );            // synthesis for one IO pair
 		}
 
-		if( 0==SubNtk.nLevel() )
-			continue;
-		
+		if(SubNtk.nLevel())
 		for(int j=i; j<vSynObj.size(); j++){
 			if( fQGBD )
 				eraseOneInf(vOneInf, fForward? vSynObj[j].second(): vSynObj[j].first ());
@@ -591,7 +526,9 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 				if( 0==term.val(j) )
 					vVarInf[j].nCtrAbl ++ ;
 		}
-		
+
+		if(0 == SubNtk.nLevel())
+			continue;		
 		if( fForward )
 			NtkBack .Append( SubNtk );
 		else
@@ -621,4 +558,120 @@ Rev_Ntk_t * Rev_GBDL( const Rev_Ttb_t& ttb ){
 
 Rev_Ntk_t * Rev_qGBDL( const Rev_Ttb_t& ttb ){
 	return _Rev_GBDL(ttb, true);
+}
+
+
+
+static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
+	Rev_Ttb_t ttb2(ttb); // create a truth table same as ttb
+	Rev_Ntk_t * pNtk;
+	vVarInf_t vVarInf;         // for qGBD only 
+	vVarInfPtr_t vVarInfPtr;   // for qGBD only 
+	int width = ttb.width();
+
+	pNtk = new Rev_Ntk_t( width );
+	// prepare array for sorting 
+	vSynObj_t vSynObj( ttb2.size() );
+	for(int i=0; i<vSynObj.size(); i++){
+		vSynObj[i] = Syn_Obj_t( ttb2[i] );
+		vSynObj[i].update_small();
+	}
+	
+	if( fQGBD ){
+		vVarInf.resize( ttb.width() );
+		vVarInfPtr.resize( ttb.width() );
+		for(int i=0; i<vVarInf.size(); i++){
+			vVarInf[i].VarId = i;
+			vVarInfPtr[i] = &vVarInf[i];
+		}
+	}
+	int nTiebreak = 0;
+
+	Rev_Ntk_t NtkFront(width), NtkBack(width);
+	for(int i=0; i<vSynObj.size(); i++){
+
+		//pick min-minterm, tie-break by hamdist
+		std::sort( vSynObj.begin()+i, vSynObj.end(), Syn_Obj_t::Cmptor_t() );
+		
+		if( i+1<vSynObj.size() )
+			if( vSynObj[i].small()==vSynObj[i+1].small() ){       // check tie-breack condition
+				if(fQGBD){
+					TermObj_t obj1(&vSynObj[i].small(), &vSynObj[i]);
+					int Cost1   = OneGateAssumeCost(&obj1,vSynObj.begin(),vSynObj.begin()+i,vVarInfPtr);
+					swap( vSynObj[i], vSynObj[i+1] );
+					TermObj_t obj2(&vSynObj[i].small(), &vSynObj[i]);
+					int Cost2   = OneGateAssumeCost(&obj2,vSynObj.begin(),vSynObj.begin()+i,vVarInfPtr);
+					swap( vSynObj[i], vSynObj[i+1] );
+
+					if(Cost1 > Cost2)
+						swap( vSynObj[i], vSynObj[i+1] ), nTiebreak ++;
+				} else
+				if( vSynObj[i].hamdist()>vSynObj[i+1].hamdist() ) // select smaller hamming distance
+					swap( vSynObj[i], vSynObj[i+1] ), nTiebreak ++;
+			}
+
+		bool fForward = vSynObj[i].isForward();
+		Rev_Ntk_t SubNtk(width);
+
+		if( fQGBD ){
+			Rev_EntryQcostSyn( &vSynObj[i], SubNtk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + i + 1 );
+		} else {
+			Rev_EntrySimpleSyn( &vSynObj[i], SubNtk );            // synthesis for one IO pair
+		}
+		
+		if(SubNtk.nLevel())
+		for(int j=i; j<vSynObj.size(); j++){
+			SubNtk.Apply( fForward? vSynObj[j].second(): vSynObj[j].first () );
+			vSynObj[j].update_small();
+		}
+
+
+		if( fQGBD ){
+			Term_t& term = vSynObj[i].first();
+			for(int j=0; j<term.ndata(); j++)
+				if(0 == term.val(j))
+					vVarInf[j].nCtrAbl ++ ;
+		}
+
+		if( 0==SubNtk.nLevel() )
+			continue;
+
+		if( fForward )
+			NtkBack .Append( SubNtk );
+		else
+			NtkFront.Append( SubNtk );
+	}
+	pNtk->Append( NtkFront );
+	NtkBack.reverse();
+	pNtk->Append( NtkBack  );
+	printf("tie-break # %d\n", nTiebreak);
+	return pNtk;
+}
+
+
+Rev_Ntk_t * Rev_GBD( const Rev_Ttb_t& ttb ){
+	Rev_Syn_t core;
+	core.ctrlMode = 0;
+	core.legalPath= 0;
+	core.costMode = 0;
+	return core.perform(ttb);
+	return _Rev_GBD( ttb, false );
+}
+
+Rev_Ntk_t * Rev_qGBD( const Rev_Ttb_t& ttb ){
+	Rev_Syn_t core;
+	core.ctrlMode = 1;
+	core.legalPath= 0;
+	core.costMode = 0;
+	return core.perform(ttb);
+	return _Rev_GBD( ttb, true );
+}
+
+Rev_Ntk_t * Rev_sGBD( const Rev_Ttb_t& ttb ){
+	Rev_Syn_t core;
+	core.ctrlMode = 2;
+	core.legalPath= 0;
+	core.costMode = 0;
+	return core.perform(ttb);
+	return _Rev_GBD( ttb, true );
 }

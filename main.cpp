@@ -18,6 +18,7 @@ int main( int argc, char * argv[] ){
 	char * SpecName = NULL, * Output = NULL;
 	if( argc <= 2 ){
 		cout<<"./revsyn <SPEC_FILE> <MODE> [OUTPUT]"<<endl;
+		cout<<"<MODE>={0=GBD, 1=qGBD, 2=GBDL, 3=qGBDL}"<<endl;
 		return 1;
 	}
 	SpecName = argv[1];
@@ -55,7 +56,10 @@ int main( int argc, char * argv[] ){
 	if( 2 == mode )
 		pNtk = Rev_GBDL(ttb);
 	else
+	if( 3 == mode )
 		pNtk = Rev_qGBDL(ttb);
+	else
+		pNtk = Rev_sGBD(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
 
 	if( fDemo ){
@@ -108,6 +112,9 @@ void demo_bit(){
 	cout<<"str2 = "<< str2 <<endl;
 	cout<<"word1= "<< word1 <<endl;
 	cout<<"word2= "<< word2 <<endl;
+
+	cout <<" leading 1 of "<< word1 << " is "<< word1.leading1() <<std::endl;
+	cout <<" leading 1 of "<< word2 << " is "<< word2.leading1() <<std::endl;
 	cout<< "Example on bit relation and operation "<<endl;
 	cout<<" relation: word1 < word2 ? " << (word1 < word2? "Yes":"No") <<endl;
 	cout<<" relation: word1 > word2 ? " << (word1 > word2? "Yes":"No") <<endl;
@@ -134,5 +141,5 @@ void demo_bit(){
 	const char * str4 = "101000100000010010";
 	word5.setWord(str3);
 	word6.setWord(str4);
-	cout << Contain(word5,word6) << " "<< Contain(word6,word5);
+	cout << Contain(word5,word6) << " "<< Contain(word6,word5) << std::endl;
 }

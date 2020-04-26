@@ -67,9 +67,13 @@ class Rev_Ntk_t {
 	vLevel_t _vLevel;
 	int _width;
 public:
-	Rev_Ntk_t( int nwidth ):_width(nwidth){}
+	Rev_Ntk_t( int nwidth=0 ):_width(nwidth){}
 	~Rev_Ntk_t(){
 		clear();
+	}
+	void reset(int nwidth){
+		clear();
+		_width = nwidth;
 	}
 	int nLevel() const { return _vLevel.size(); }
 	int width () const { return _width; }

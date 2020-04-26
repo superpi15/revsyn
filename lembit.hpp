@@ -51,6 +51,12 @@ public:
 		}
 		return wt;
 	}
+	int leading1() const {
+		int idx = -1;
+		for(int i=ndata()-1; i>=0; i--)
+			if(val(i)) return i;
+		return -1;
+	}
 	void setWord( const char * Word ){
 		const size_t len = strlen(Word);
 		clear();
