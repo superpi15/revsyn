@@ -1,4 +1,7 @@
 #include <fstream>
+#include <sstream>
+#include <string>
+
 #include "ntk.hpp"
 
 using namespace std;
@@ -49,4 +52,45 @@ int Rev_Ntk_t::WriteReal( ostream& ostr ) const {
 
 	ostr<<".end"<< endl;
 	return 1;
+}
+
+int verify(Rev_Ttb_t& ttb, const char * fNtk){
+	Rev_Ntk_t Ntk(ttb.width());
+	ifstream ifstr(fNtk);
+	string line, word;
+
+	while(getline(ifstr,line)){
+		istringstream istr(line);
+		int idx, ctrl;
+		Rev_Gate_t Gate;
+		if(!(istr>>ctrl)){
+			cout << "missing control bit"<<endl;
+			return 2;
+		}
+
+		Term_t Oper;
+		Oper.resize(ttb.width());
+		while( istr >> idx){
+			if(ttb.width()  <= idx){
+				cout << "extra ancilla detected"<<endl;
+				return 2;
+			}
+			Oper.set(idx,1);
+		}
+
+		Gate.setCtrl(Oper);
+		Gate.setFlip(ctrl);
+		Ntk.push_back(Gate);
+	}
+	cout<<" Nkt: level= "<<Ntk.nLevel() <<" nCtrl= "<< Ntk.nCtrl() <<endl;
+	cout << "QCost = " << Ntk.QCost() << endl;
+	
+	if( ! Ntk.Verify(ttb) ){
+		cout<<" Verification: FAIL "<<endl;
+		return 0;
+	} else {
+		cout<<" Verification: PASS "<<endl;
+		return 1;
+	}
+	
 }

@@ -654,7 +654,7 @@ Rev_Ntk_t * Rev_GBD( const Rev_Ttb_t& ttb ){
 	core.ctrlMode = 0;
 	core.legalPath= 0;
 	core.costMode = 0;
-	return core.perform(ttb);
+	//return core.perform(ttb);
 	return _Rev_GBD( ttb, false );
 }
 
@@ -663,7 +663,7 @@ Rev_Ntk_t * Rev_qGBD( const Rev_Ttb_t& ttb ){
 	core.ctrlMode = 1;
 	core.legalPath= 0;
 	core.costMode = 0;
-	return core.perform(ttb);
+	//return core.perform(ttb);
 	return _Rev_GBD( ttb, true );
 }
 
@@ -671,7 +671,6 @@ Rev_Ntk_t * Rev_sGBD( const Rev_Ttb_t& ttb ){
 	Rev_Syn_t core;
 	core.ctrlMode = 2;
 	core.legalPath= 0;
-	core.costMode = 0;
 	return core.perform(ttb);
 	return _Rev_GBD( ttb, true );
 }

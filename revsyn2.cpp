@@ -22,7 +22,7 @@ static bool Contain( const Term_t& prime, const Term_t& space ){
 }
 
 static void FillOneFirstOrder( const Term_t& Diff, const Term_t& large, vector<int>& vOrder ){
-	for(int i=0; i<Diff.ndata(); i++){
+	for(int i=Diff.ndata()-1; i>=0; i--){
 		int var = i;
 		if( !Diff.val(var) )
 			continue;
@@ -180,7 +180,7 @@ int Lex_SatVarSel(SimpSolver * pSol, vec<Lit>& vAssume, int p, int q){
 	int nLarge, nSmall;
 
 	if(0 == q-p){
-		cout<<"empty: "<<p<<" "<<q<<endl;
+//		cout<<"empty: "<<p<<" "<<q<<endl;
 		return 0;
 	}
 
@@ -296,29 +296,42 @@ static Term_t Lex_QcostMinOper(SimpSolver * pSol, int fill01, const Term_t& Oper
 	return ret;
 }
 
-static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
+static int checkUnfixed(bool fCheckFirst, int bit_idx, Term_t& oper, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd, const vSynObj_t::iterator allEnd){
+	int idx = 0;
+	vector<int> vUnfixedFlipped;
+	//cout <<"\tchecking for oper "<< oper <<" flips "<< bit_idx<<endl;
+	for(vSynObj_t::iterator itr = fixedEnd; itr < allEnd; itr++){
+		Term_t target = fCheckFirst? itr->first(): itr->second();
+		//cout <<"\t\ttarget: "<< target <<endl;
+		if(0 == target.val(bit_idx))
+			continue;
+		if(!Contain(oper,target))
+			continue;
+		target.flip(bit_idx);
+		//cout <<"\t\tflip to "<< target <<endl;
+		for(vSynObj_t::iterator itr2 = fixedBegin; itr2 < fixedEnd; itr2++){
+			Term_t fixed = fCheckFirst? itr2->second(): itr2->first();
+			//cout <<"\t\t\tfixed: "<< fixed <<" " << (Contain(target,fixed)? "[X]": "[O]") <<endl;
+			if(!Contain(target,fixed))
+				continue;
+			
+			vUnfixedFlipped.push_back(allEnd - itr2);
+		}
+	}
+	return vUnfixedFlipped.size();
+}
+
+static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd, const vSynObj_t::iterator allEnd ){
 	sort( vVarInfPtr.begin(), vVarInfPtr.end(), Var_Inf_t::Cmptor_t() );
 	reverse( vVarInfPtr.begin(), vVarInfPtr.end() );
 	
 	const Term_t& small = pObj->small();
 	const Term_t& large = pObj->large();
+	bool fCheckFirst = !pObj->isForward();
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
 	vector<int> vOrder;
 
-	// add clause 
-	assert(pSol);
-	vec<Lit> cla;
-	for(int j=0; j<small.ndata(); j++)
-		if(0 == small.val(j))
-			cla.push(mkLit(j, 0));
-	if(cla.size()){
-		pSol->addClause(cla);
-		//cout<<"add clause: ";\
-		for(int j=0; j<cla.size(); j++)\
-			cout<< var(cla[j]) <<" ";\
-		cout << endl;
-	}
 
 	FillOneFirstOrder(Diff, large, vOrder);
 
@@ -327,17 +340,35 @@ static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk,
 	std::cout<<"diff = "<< Diff <<"\n";
 	for(int i=0; i<vOrder.size(); i++){
 	//for(int i=0; i<Diff.ndata(); i++){
-		//std::cout<< i <<" prog at "<< Prog <<std::endl;
 		int idx = vOrder[i];
 		if( !Diff.val(idx) )
 			continue;
+
+		//std::cout<<"flip "<< idx <<" on "<< Prog <<std::endl;
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
 		Oper = Lex_QcostMinOper(pSol, small.val(idx), Oper, vVarInfPtr, fixedBegin, fixedEnd );
+		if(checkUnfixed(fCheckFirst, idx, Oper, fixedBegin, fixedEnd, allEnd)){
+			Oper = Prog;
+			Oper.set(idx,0);
+		}
 		//cout << "oper = "<< Oper <<endl;
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
 		Gate.setFlip( idx );
+
+		Rev_Ntk_t TmpNtk(Oper.ndata());
+		TmpNtk.push_back( Gate );
+		for(vSynObj_t::iterator itr = fixedEnd-1; itr !=allEnd; itr++ ){
+			TmpNtk.Apply( fCheckFirst? itr->first (): itr->second() );
+			
+			//cout<<"fForward? "<< fForward<<": " << vSynObj[j].second() <<" vs. "<< vSynObj[j].first () <<endl; 
+			//assert(vSynObj[j].second() == vSynObj[j].first () );
+			itr->update_small();
+		}
+
+
+
 		Ntk.push_back( Gate );
 		Prog.flip( idx );
 
@@ -359,7 +390,7 @@ void Rev_Syn_t::synthesizeEntry(int idx, Rev_Ntk_t& Ntk){
 	} else
 	if(2 == ctrlMode){
 		//Rev_EntryQcostSyn( &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1 );
-		Rev_EntryLexSyn(pSol, &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1 );
+		Rev_EntryLexSyn(pSol, &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1, vSynObj.end() );
 		return;
 	}
 	assert(false);
@@ -498,6 +529,23 @@ void Rev_Syn_t::dataUpdate(int idx){
 			if(0 == term.val(j))
 				vVarInf[j].nCtrAbl ++ ;
 	}
+
+	if(2 == ctrlMode){
+		// add clause 
+		Term_t& small = vSynObj[idx].first();
+		assert(pSol);
+		vec<Lit> cla;
+		for(int j=0; j<small.ndata(); j++)
+			if(0 == small.val(j))
+				cla.push(mkLit(j, 0));
+		if(cla.size()){
+			pSol->addClause(cla);
+			//cout<<"add clause: ";\
+			for(int j=0; j<cla.size(); j++)\
+				cout<< var(cla[j]) <<" ";\
+			cout << endl;
+		}
+	}
 }
 
 Rev_Ntk_t * Rev_Syn_t::perform(const Rev_Ttb_t& ttb){	
@@ -517,6 +565,8 @@ Rev_Ntk_t * Rev_Syn_t::perform(const Rev_Ttb_t& ttb){
 		//cout<<"syn@"<<i<<": "<<endl;\
 		ttb2.print(cout);\
 		cout<<endl;
+		if(0==(i%200))
+			cout << i <<endl;
 
 		//pick min-minterm, tie-break by hamdist
 		if(i != (target = selectEntry(i)))
@@ -535,14 +585,14 @@ Rev_Ntk_t * Rev_Syn_t::perform(const Rev_Ttb_t& ttb){
 //		}
 		
 		//SubNtk.print(cout); cout<<endl;
-		if(SubNtk.nLevel())
-		for(int j=i; j<vSynObj.size(); j++){
-			SubNtk.Apply( fForward? vSynObj[j].second(): vSynObj[j].first () );
-			
-			//cout<<"fForward? "<< fForward<<": " << vSynObj[j].second() <<" vs. "<< vSynObj[j].first () <<endl; 
-			//assert(vSynObj[j].second() == vSynObj[j].first () );
-			vSynObj[j].update_small();
-		}
+//		if(SubNtk.nLevel())
+//		for(int j=i; j<vSynObj.size(); j++){
+//			SubNtk.Apply( fForward? vSynObj[j].second(): vSynObj[j].first () );
+			//
+//			//cout<<"fForward? "<< fForward<<": " << vSynObj[j].second() <<" vs. "<< vSynObj[j].first () <<endl; 
+//			//assert(vSynObj[j].second() == vSynObj[j].first () );
+//			vSynObj[j].update_small();
+//		}
 
 		dataUpdate(i);
 

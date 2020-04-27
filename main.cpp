@@ -17,8 +17,8 @@ int main( int argc, char * argv[] ){
 	int mode = 0;
 	char * SpecName = NULL, * Output = NULL;
 	if( argc <= 2 ){
-		cout<<"./revsyn <SPEC_FILE> <MODE> [OUTPUT]"<<endl;
-		cout<<"<MODE>={0=GBD, 1=qGBD, 2=GBDL, 3=qGBDL}"<<endl;
+		cout<<"./revsyn <SPEC_FILE> <MODE> [OUTPUT/NtkName]"<<endl;
+		cout<<"<MODE>={0=GBD, 1=qGBD, 2=GBDL, 3=qGBDL, 10=verify}"<<endl;
 		return 1;
 	}
 	SpecName = argv[1];
@@ -35,7 +35,7 @@ int main( int argc, char * argv[] ){
 		cout<<"Parsing Error"<<endl;
 		return 1;
 	}
-	cout<<" Spec: "<< SpecName <<" nEntry= "<< ttb.size() <<endl;
+	cout<<" Spec: "<< SpecName <<" width= "<< ttb.width() <<" nEntry= "<< ttb.size() <<endl;
 	
 	if( fDemo ){
 		ttb.print( cout ); 
@@ -58,6 +58,12 @@ int main( int argc, char * argv[] ){
 	else
 	if( 3 == mode )
 		pNtk = Rev_qGBDL(ttb);
+	else
+	if( 10 == mode ){
+		int verify(Rev_Ttb_t& ttb, const char * fNtk);
+		verify(ttb,Output);
+		return 0;
+	}
 	else
 		pNtk = Rev_sGBD(ttb);
 	cout<<" Nkt: level= "<<pNtk->nLevel() <<" nCtrl= "<< pNtk->nCtrl() <<endl;
