@@ -41,7 +41,39 @@ static Term_t Rev_QcostMinOper(int fill01, const Term_t& OperCand, vVarInfPtr_t&
 		if( ret == fixedBegin->small() ) // zero 
 			return ret;
 	}
-	
+
+	vVarInfPtr_t vVarInfPtrLegal;
+	for(int i=0; i<vVarInfPtr.size(); i++){
+		int var = vVarInfPtr[i]->VarId;
+		if( OperCand.val( var ) )
+			vVarInfPtrLegal.push_back( vVarInfPtr[i] );
+	}
+
+	int vtop = 0;
+	int wCand = OperCand.weight();
+	int wRet  = 0;
+	for( vSynObj_t::iterator itr = fixedBegin; itr != fixedEnd && wRet < wCand ; itr ++ ){
+		const Term_t& target = itr->small();
+		if( target != (ret | target) )
+			continue;
+
+
+		for(int i=0; i<vVarInfPtrLegal.size(); i++){
+			int var = vVarInfPtrLegal[i]->VarId;
+			if( target.val(var) )
+				continue;
+			ret.set( var, 1 );
+			wRet ++ ;
+
+			//if( target != (ret | target) )
+			break;
+		}
+	}
+
+
+	return ret;
+
+/**
 	for( vSynObj_t::iterator itr = fixedBegin; itr != fixedEnd; itr ++ )
 		vUnchecked.push_back(itr);
 
@@ -82,6 +114,7 @@ static Term_t Rev_QcostMinOper(int fill01, const Term_t& OperCand, vVarInfPtr_t&
 //	}
 	assert( vUnchecked.empty() );
 	return ret;
+	/**/
 }
 
 static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd ){
@@ -632,10 +665,17 @@ static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
 	int nTiebreak = 0;
 
 	Rev_Ntk_t NtkFront(width), NtkBack(width);
+
+	printf("\r%6.2f%%", (float) 0 );
 	for(int i=0; i<vSynObj.size(); i++){
 
 		//pick min-minterm, tie-break by hamdist
 		std::sort( vSynObj.begin()+i, vSynObj.end(), Syn_Obj_t::Cmptor_t() );
+
+		if( 0 == (i%50) ){
+			printf("\r%6.2f%%", (float) 100*i / ttb2.size() );
+			fflush(stdout);
+		}
 		
 		if( i+1<vSynObj.size() )
 			if( vSynObj[i].small()==vSynObj[i+1].small() ){       // check tie-breack condition
@@ -685,6 +725,8 @@ static Rev_Ntk_t * _Rev_GBD( const Rev_Ttb_t& ttb, bool fQGBD ){
 		else
 			NtkFront.Append( SubNtk );
 	}
+	printf("\r100.00%%\n");
+
 	pNtk->Append( NtkFront );
 	NtkBack.reverse();
 	pNtk->Append( NtkBack  );
