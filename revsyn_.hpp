@@ -6,7 +6,12 @@
 #include "ttb.hpp"
 #include "ntk.hpp"
 #include "revsynUtil.hpp"
+
+
+#ifdef USE_MINISAT
 #include "minisat/simp/SimpSolver.h"
+#endif
+
 
 class Rev_Syn_t {
 public:
@@ -18,7 +23,9 @@ public:
 	vSynObj_t vSynObj;
 	Rev_Ntk_t * perform(const Rev_Ttb_t& ttb);
 private:
+	#ifdef USE_MINISAT
 	Minisat::SimpSolver * pSol;
+	#endif
 
 	int _nEntry;               // count synthesized entry in current synthesize round
 	Rev_Ntk_t _SubNtk;          // the last synthesized sub-circuit
@@ -36,3 +43,4 @@ private:
 };
 
 #endif
+

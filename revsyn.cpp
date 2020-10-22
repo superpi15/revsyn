@@ -90,6 +90,7 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 	
 	const Term_t& small = pObj->small();
 	const Term_t& large = pObj->large();
+	//cout <<" start computing cost "<< small <<" , " << large << endl;
 	Term_t Prog = large;   // progress
 	Term_t Diff = small ^ large;
 	vector<int> vOrder;
@@ -324,13 +325,19 @@ static inline int OneGateAssumeCost(TermObj_t * pTermObj, vSynObj_t::iterator fi
 	Rev_Ntk_t tmpGate(pTermObj->pTerm->ndata());
 	Syn_Obj_t * pObj = (Syn_Obj_t*) pTermObj->pSrc;
 	
+	//cout <<"     gate assume cost "<< (pTermObj->pSrc->first()) << " , " <<pTermObj->pSrc->second() << endl;
+
 	pObj->update_small(*pTermObj->pTerm==pTermObj->pSrc->first()? 0: 1); // assume the direction
 	std::swap( *fixedEnd, *pObj );	// assume
-	
-	Rev_EntryQcostSyn( &*pObj, tmpGate, vVarInfPtr, fixedBegin, fixedEnd + 1 );
+
+	//cout <<" gate assume cost "<< (pTermObj->pSrc->first()) << " , " <<pTermObj->pSrc->second() << endl;	
+	Rev_EntryQcostSyn( &*fixedEnd, tmpGate, vVarInfPtr, fixedBegin, fixedEnd + 1 );
 	
 	pObj->update_small(); 			// restore 
 	std::swap( *fixedEnd, *pObj );	// restore 
+	//if( 1 < pTermObj->pSrc->hamdist() && 0 == tmpGate.QCost())\
+		tmpGate.print( cout ); cout <<" result gate " <<endl;
+	//cout <<" end gate assume cost "<< (pTermObj->pSrc->first()) << " , " <<pTermObj->pSrc->second() << endl << endl;
 	return tmpGate.QCost();
 }
 
@@ -365,7 +372,7 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 
 			curWeight = itr->pTerm->weight();
 			// select larger hamming weight
-			if(ret != TermObj_t::null && retWeight > curWeight)\
+			//if(ret != TermObj_t::null && retWeight < curWeight)\
 				continue;
 			// select larger hamming distance
 			//if(ret != TermObj_t::null && retDst > curDst)\
@@ -375,13 +382,31 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 			if(ret != TermObj_t::null && retLead12< curLead12)\
 				continue;
 
+			if(ret != TermObj_t::null && min(retLead1, retLead12) < min(curLead1, curLead12)){
+				//if( ret != TermObj_t::null && curWeight == retWeight )\
+				cout << " skip " << *itr->pTerm << "," << itr->pSrc->another(*itr->pTerm) << " : lead ret vs. cur "<< max(retLead1, retLead12) << " , " << max(curLead1, curLead12) << endl;
+				continue;
+			}
 
 			curOneNum = countOneNum(vOneInf, itr->pSrc->first ());
 			curOneNum+= countOneNum(vOneInf, itr->pSrc->second());
 			if( fExactCost ){
 				curCost   = OneGateAssumeCost((TermObj_t*)&*itr,fixedBegin,fixedEnd,vVarInfPtr);
-				if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
+				bool fMustUpdate = ret == TermObj_t::null || min(retLead1, retLead12) > min(curLead1, curLead12);
+				if( fMustUpdate || (  (min(retLead1, retLead12) >= min(curLead1, curLead12)) && (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm))  )
+				//ret == TermObj_t::null? true: \
+					(  (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)) || (max(retLead1, retLead12) > max(curLead1, curLead12)) )
+					)     // exact cost
+				{
+					/**
+					if( ret != TermObj_t::null )
+						cout << " +replace "<< (*itr->pTerm) ;
+					else
+						cout << "select    "<< (*itr->pTerm) ;
+					cout << " minterm: "<< itr->pSrc->first() <<","<< itr->pSrc->second() << " leading1 "<< curLead1 <<" , "<< curLead12 <<  "  hamdist "<< itr->pSrc->hamdist() << " cost= "<< curCost << endl;
+					/**/
 					ret = * itr, retCost = curCost, retWeight = curWeight, retLead1 = curLead1, retLead12 = curLead12, retDst = curDst;
+				}
 				continue;
 			}
 //			Rev_Ntk_t tmpGate(itr->pTerm->ndata());
@@ -395,10 +420,21 @@ static TermObj_t SelectFix2( vector< TermObjSet_t >& mW2Term, vVarInf_t& vOneInf
 			//if(ret == TermObj_t::null? true: (*itr->pTerm > *ret.pTerm))                       // lexical greatest first
 			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() < ret.pSrc->hamdist()))     // smallest cost 
 			//if(ret == TermObj_t::null? true: (curCost != retCost? curCost < retCost: (*itr->pTerm < *ret.pTerm)))     // exact cost
-			if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
+			//if(ret == TermObj_t::null? true: (*itr->pTerm < *ret.pTerm))                       // lexical smallest first 
 			//if(ret == TermObj_t::null? true: (curOneNum != retOneNum? curOneNum < retOneNum: *itr->pTerm < *ret.pTerm))
 			//if(ret == TermObj_t::null? true: (itr->pSrc->hamdist() != ret.pSrc->hamdist()? itr->pSrc->hamdist() < ret.pSrc->hamdist(): (*itr->pTerm < *ret.pTerm)))     // smallest cost 
-				ret = * itr, retCost = curCost, retWeight = curWeight, retLead1 = curLead1, retLead12 = curLead12;
+			bool fMustUpdate = ret == TermObj_t::null || min(retLead1, retLead12) > min(curLead1, curLead12);
+			if( fMustUpdate || itr->pSrc->hamdist() < ret.pSrc->hamdist() )
+			{
+				/**
+				if( ret != TermObj_t::null )
+					cout << " +replace "<< (*itr->pTerm) ;
+				else
+					cout << "select    "<< (*itr->pTerm) ;
+				cout << " minterm: "<< itr->pSrc->first() <<","<< itr->pSrc->second() << " leading1 "<< curLead1 <<" , "<< curLead12 <<  "  hamdist "<< itr->pSrc->hamdist() << " cost= "<< curCost << endl;
+				/**/
+				ret = * itr, retCost = curCost, retWeight = curWeight, retLead1 = curLead1, retLead12 = curLead12, retDst = curDst;
+			}
 		}
 	}
 	return ret;
@@ -458,11 +494,17 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 
 	pNtk = new Rev_Ntk_t( width );
 	Rev_Ntk_t NtkFront(width), NtkBack(width);
+	printf("\r%6.2f%%", (float) 0 );
 	for(int i=0; i<ttb2.size(); i++){
 		vector< TermObjSet_t > mW2Term;
 		TermObj_t tar;
 		clk1 = clock();
 		LegalHamWeightGraph( vSynObj, vSynObj.begin() + i, mW2Term );
+
+		if( 0 == (i%50) ){
+			printf("\r%6.2f%%", (float) 100*i / ttb2.size() );
+			fflush(stdout);
+		}
 //		std::cout<<"legal hw graph:\n";
 //		for(int j=0; j<mW2Term.size(); j++){
 //			std::cout<<j<<" ";
@@ -534,6 +576,8 @@ Rev_Ntk_t * _Rev_GBDL( const Rev_Ttb_t& ttb, bool fQGBD ){
 		else
 			NtkFront.Append( SubNtk );
 	}
+
+	printf("\n");
 
 	printf("one ctrl:\n");
 	for(int i=0; i<vOneInf.size(); i++)

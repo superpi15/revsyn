@@ -42,7 +42,12 @@ int Rev_Ntk_t::WriteReal( ostream& ostr ) const {
 	for(int i=0; i<_vLevel.size(); i++)
 	{
 		int flip = _vLevel[i]->getFlip();
+		int icount = 0;
 		Term_t Ctrls = _vLevel[i]->getCtrl();
+		for(int j=0; j<Ctrls.ndata(); j++)
+			if( Ctrls.val(j) )
+				icount ++ ;
+		ostr << "t" << icount + 1 <<" ";
 		for(int j=0; j<Ctrls.ndata(); j++)
 			if( Ctrls.val(j) )
 				ostr<<"x"<< j <<" ";

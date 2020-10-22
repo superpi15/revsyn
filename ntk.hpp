@@ -156,11 +156,26 @@ public:
 
 	int QCost() const {
 		int ret = 0;
+		/**
 		const int TableSz = 11;
 		const int CostTable[] = {0,1,1,5,13,29,61,125,253,509,1021};
 		for(int i=0; i<_vLevel.size(); i++){
 			int nOper = _vLevel[i]->nCtrl() + ( -1 < _vLevel[i]->getFlip() );
 			ret += nOper < TableSz? CostTable[ nOper ]: (1<<nOper) - 3;
+		}
+		/**/
+		for(int i=0; i<_vLevel.size(); i++){
+			int nOper = _vLevel[i]->nCtrl();
+			switch( nOper ){
+				case 0:; case 1: break;
+				case 2: ret += 7; break;
+				default:
+					if( width() - nOper - 1 >= (nOper-1)/2 )
+						ret += 8 * (nOper - 1);
+					else
+						ret += 16 * (nOper - 1);
+				;
+			}
 		}
 		return ret;
 	}

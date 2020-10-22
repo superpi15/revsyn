@@ -47,7 +47,7 @@ public:
 	int nCtrAbl; // controllability
 	struct Cmptor_t {
 		bool operator()( const Var_Inf_t& v1, const Var_Inf_t& v2 ) const {
-			return v1.nCtrAbl != v2.nCtrAbl? v1.nCtrAbl < v2.nCtrAbl: v1.VarId > v2.VarId;
+			return v1.nCtrAbl != v2.nCtrAbl? v1.nCtrAbl < v2.nCtrAbl: v1.VarId < v2.VarId;
 			//return v1.VarId < v2.VarId;
 		}
 		bool operator()( const Var_Inf_t * pv1, const Var_Inf_t* pv2 ) const {

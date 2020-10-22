@@ -2,18 +2,25 @@
 #include <time.h>
 
 using namespace std;
+
+#ifdef USE_MINISAT
 using namespace Minisat;
+#endif
 
 Rev_Syn_t::Rev_Syn_t(){
 	ctrlMode = 0;
 	legalPath= 0;
 	_nEntry  = 0;
+	#ifdef USE_MINISAT
 	pSol = NULL;
+	#endif
 	vSynObj.clear();
 }
 
 Rev_Syn_t::~Rev_Syn_t(){
+	#ifdef USE_MINISAT
 	pSol = NULL;
+	#endif
 }
 
 // test whether space contains prime 
@@ -155,6 +162,10 @@ static void Rev_EntryQcostSyn( Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& v
 	assert( Prog == small );
 }
 
+
+
+
+#ifdef USE_MINISAT
 void blockSwap(vec<Lit>& v, int pos1, int pos2, int sz){
 	for(int i=0; i<sz; i++)
 		std::swap(v[pos1+i], v[pos2+i]);
@@ -296,6 +307,8 @@ static Term_t Lex_QcostMinOper(SimpSolver * pSol, int fill01, const Term_t& Oper
 	return ret;
 }
 
+#endif
+
 static int checkUnfixed(bool fCheckFirst, int bit_idx, Term_t& oper, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd, const vSynObj_t::iterator allEnd){
 	int idx = 0;
 	vector<int> vUnfixedFlipped;
@@ -321,6 +334,8 @@ static int checkUnfixed(bool fCheckFirst, int bit_idx, Term_t& oper, const vSynO
 	return vUnfixedFlipped.size();
 }
 
+
+#ifdef USE_MINISAT
 static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk, vVarInfPtr_t& vVarInfPtr, const vSynObj_t::iterator fixedBegin, const vSynObj_t::iterator fixedEnd, const vSynObj_t::iterator allEnd ){
 	sort( vVarInfPtr.begin(), vVarInfPtr.end(), Var_Inf_t::Cmptor_t() );
 	reverse( vVarInfPtr.begin(), vVarInfPtr.end() );
@@ -335,6 +350,23 @@ static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk,
 
 	FillOneFirstOrder(Diff, large, vOrder);
 
+	//if(2 == ctrlMode){
+		// add clause 
+		//Term_t& small = pObj->small();
+		assert(pSol);
+		vec<Lit> cla;
+		for(int j=0; j<small.ndata(); j++)
+			if(0 == small.val(j))
+				cla.push(mkLit(j, 0));
+		if(cla.size()){
+			pSol->addClause(cla);
+			//cout<<"add clause: ";\
+			for(int j=0; j<cla.size(); j++)\
+				cout<< var(cla[j]) <<" ";\
+			cout << endl;
+		}
+	//}
+
 	//std::cout<<"synthesize for \n";\
 	std::cout<< small <<" "<<large<<"\n";\
 	std::cout<<"diff = "<< Diff <<"\n";
@@ -348,10 +380,10 @@ static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk,
 		Term_t Oper = Prog;
 		Oper.set(idx,0);
 		Oper = Lex_QcostMinOper(pSol, small.val(idx), Oper, vVarInfPtr, fixedBegin, fixedEnd );
-		if(checkUnfixed(fCheckFirst, idx, Oper, fixedBegin, fixedEnd, allEnd)){
-			Oper = Prog;
-			Oper.set(idx,0);
-		}
+//		if(checkUnfixed(fCheckFirst, idx, Oper, fixedBegin, fixedEnd, allEnd)){
+//			Oper = Prog;
+//			Oper.set(idx,0);
+//		}
 		//cout << "oper = "<< Oper <<endl;
 		Rev_Gate_t Gate;
 		Gate.setCtrl( Oper );
@@ -378,6 +410,7 @@ static void Rev_EntryLexSyn(SimpSolver * pSol, Syn_Obj_t * pObj, Rev_Ntk_t& Ntk,
 	//std::cout<<"prog vs. small= "<< Prog <<" "<< small<<std::endl;
 	assert( Prog == small );
 }
+#endif
 
 void Rev_Syn_t::synthesizeEntry(int idx, Rev_Ntk_t& Ntk){
 	if(0 == ctrlMode){
@@ -387,12 +420,15 @@ void Rev_Syn_t::synthesizeEntry(int idx, Rev_Ntk_t& Ntk){
 	if(1 == ctrlMode){
 		Rev_EntryQcostSyn( &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1 );
 		return;
-	} else
+	} 
+	#ifdef USE_MINISAT
+	else
 	if(2 == ctrlMode){
 		//Rev_EntryQcostSyn( &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1 );
 		Rev_EntryLexSyn(pSol, &vSynObj[idx], Ntk, vVarInfPtr, vSynObj.begin(), vSynObj.begin() + idx + 1, vSynObj.end() );
 		return;
 	}
+	#endif
 	assert(false);
 }
 
@@ -515,11 +551,14 @@ void Rev_Syn_t::dataInitialize(const Rev_Ttb_t& ttb){
 		}
 	}
 
+
+	#ifdef USE_MINISAT
 	if(2 == ctrlMode){
 		pSol = new SimpSolver;
 		for(int i=0; i<ttb.width(); i++)
 			pSol->newVar();
 	}
+	#endif
 }
 
 void Rev_Syn_t::dataUpdate(int idx){
@@ -530,22 +569,22 @@ void Rev_Syn_t::dataUpdate(int idx){
 				vVarInf[j].nCtrAbl ++ ;
 	}
 
-	if(2 == ctrlMode){
-		// add clause 
-		Term_t& small = vSynObj[idx].first();
-		assert(pSol);
-		vec<Lit> cla;
-		for(int j=0; j<small.ndata(); j++)
-			if(0 == small.val(j))
-				cla.push(mkLit(j, 0));
-		if(cla.size()){
-			pSol->addClause(cla);
-			//cout<<"add clause: ";\
-			for(int j=0; j<cla.size(); j++)\
-				cout<< var(cla[j]) <<" ";\
-			cout << endl;
-		}
-	}
+//	if(2 == ctrlMode){
+//		// add clause 
+//		Term_t& small = vSynObj[idx].first();
+//		assert(pSol);
+//		vec<Lit> cla;
+//		for(int j=0; j<small.ndata(); j++)
+//			if(0 == small.val(j))
+//				cla.push(mkLit(j, 0));
+//		if(cla.size()){
+//			pSol->addClause(cla);
+//			//cout<<"add clause: ";\
+//			for(int j=0; j<cla.size(); j++)\
+//				cout<< var(cla[j]) <<" ";\
+//			cout << endl;
+//		}
+//	}
 }
 
 Rev_Ntk_t * Rev_Syn_t::perform(const Rev_Ttb_t& ttb){	
